@@ -1,0 +1,2841 @@
+BENIN DIGITAL
+
+Etude : L’INTELLIGENCE
+ARTIFICIELLE et leurs
+APPLICABILITÉ
+[Sous-titre du document]
+
+AGBOWAI Marshall
+Novembre 2025
+
+1
+
+Table des matières
+Partie 1: Introduction générale à l’intelligence artificielle
+1.​
+2.​
+3.​
+4.​
+
+5.​
+
+6.​
+
+Définition et objectifs de l’IA
+Importance et présence de l’IA dans le monde professionnel
+Application de l’IA dans les ressources humaines
+Les fondements de l’intelligence artificielle
+4.1.​ Les trois piliers du fonctionnement de l’IA
+4.1.1.​ Les données
+4.1.2.​ Les algorithmes d’apprentissage
+4.1.3.​ L’entraînement et la prise de décision
+4.2.​ Cycle général de fonctionnement d’un système d’IA
+Les types d’intelligence artificielle
+5.1.​ L’IA faible (spécialisée)
+5.2.​ L’IA forte (générale)
+5.3.​ L’IA super-intelligente
+Le fonctionnement général d’un système d’IA
+6.1.​ Du traitement des données à la prise de décision
+6.2.​ Le principe d’apprentissage continu
+6.3.​ Exemples d’applications concrètes dans divers secteurs
+
+Partie 2: L’intelligence artificielle dans les Ressources Humaines
+1.​
+
+2.​
+3.​
+
+4.​
+
+Domaines d’application de l’IA RH
+1.1.​ Tri et lecture automatique des CV
+1.2.​ Recommandation de profils
+1.3.​ Automatisation des entretiens et tâches administratives
+1.4.​ Détection des incohérences et amélioration des recrutements
+Bénéfices et limites de l’IA dans le recrutement
+Cas pratique : Automatisation de la lecture et du classement des CV
+3.1.​ Objectif du système
+3.2.​ Fonctionnement global du processus
+3.2.1.​ Étape 1 : Extraction du contenu des CV
+3.2.2.​ Étape 2 : Analyse et parsing des informations
+3.2.3.​ Étape 3 : Calcul du score de correspondance
+3.2.4.​ Étape 4 : Classement automatique des CV
+3.3.​ Les trois approches possibles
+3.3.1.​ Script interne
+3.3.2.​ Modèle open-source IA
+3.3.3.​ API professionnelle RH
+Comparatif et recommandations
+4.1.​ Recommandation finale pour une mise en œuvre efficace
+4.2.​ Etape de réalisation d’ajout d’une matching IA
+
+5
+6
+6
+7
+
+9
+
+11
+
+13
+14
+
+15
+15
+
+23
+24
+25
+
+​
+
+2
+
+PARTIE 1 : Introduction générale à l’intelligence artificielle
+
+3
+
+Introduction
+L’Intelligence Artificielle (IA) s’impose comme le moteur central de la révolution numérique contemporaine.
+Son influence s’étend désormais à l’ensemble des secteurs — économie, santé, éducation, art, écologie,
+industrie, et même gouvernance.​
+Depuis la démocratisation des grands modèles de langage (comme ChatGPT, Claude, Gemini, Mistral, etc.), l’IA
+n’est plus seulement un outil de recherche scientifique : elle est devenue un instrument quotidien de travail, de
+création et de décision.
+Son intégration croissante transforme les métiers, les modes de production et les interactions sociales. Les
+entreprises exploitent l’IA pour automatiser, prédire et innover ; les États s’en servent pour la cybersécurité, la
+gestion publique et la planification économique ; les citoyens l’utilisent pour l’assistance, la création et la
+communication.
+Ainsi, l’IA est aujourd’hui au cœur du progrès technologique mondial, représentant à la fois une promesse
+d’efficacité et un défi de responsabilité.
+
+4
+
+1.​ Définition et Objectifs de l’Intelligence Artificielle
+Définition
+L’Intelligence Artificielle (IA) est une discipline des sciences informatiques qui vise à concevoir des
+systèmes capables de réaliser des tâches nécessitant normalement l’intelligence humaine : perception,
+compréhension du langage, apprentissage, raisonnement, planification, adaptation et créativité.
+En d’autres termes, une IA tente de reproduire les fonctions cognitives humaines au moyen
+d’algorithmes et de modèles statistiques.​
+Elle repose sur l’idée que les comportements intelligents peuvent être décrits, simulés et optimisés à
+l’aide de programmes informatiques.
+L’IA englobe donc plusieurs sous-domaines :
+●​ Le Machine Learning (apprentissage automatique)​
+●​ Le Deep Learning (apprentissage profond)​
+●​ Le traitement du langage naturel (NLP)​
+●​ La vision par ordinateur (Computer Vision)​
+●​ Les systèmes multi-agents et autonomes​
+●​ Les modèles génératifs et l’IA créative
+
+L’IA n’est pas une seule technologie, mais un ensemble de techniques mathématiques et informatiques
+qui permettent à des machines d’analyser, d’apprendre et de s’adapter à partir de données.
+
+Objectifs​
+L’objectif principal de l’intelligence artificielle est donc de permettre aux machines de résoudre des
+problèmes complexes, d’aider l’humain dans ses prises de décision et de réaliser des tâches répétitives
+ou à forte valeur analytique plus rapidement et plus efficacement que l’être humain.
+Dans le contexte actuel, l’IA ne se limite plus à la recherche scientifique. Elle est devenue un outil
+pratique, stratégique et économique pour les entreprises, les gouvernements et les particuliers.
+
+5
+
+2.​ Importance et Présence de l’IA dans le monde
+professionnel
+Aujourd’hui, l’intelligence artificielle est présente dans presque tous les secteurs d’activité.​
+Elle joue un rôle essentiel dans la transformation numérique et dans l’amélioration de la productivité.
+Voici quelques exemples d’applications concrètes :
+●​ Dans la santé : aide au diagnostic médical, analyse d’images radiologiques, détection de
+maladies.​
+●​ Dans la finance : détection des fraudes, prévisions boursières, gestion automatisée des
+portefeuilles.​
+●​ Dans l’industrie : maintenance prédictive, robotique intelligente, automatisation des chaînes
+de production.​
+●​ Dans le commerce et le marketing : personnalisation des publicités, recommandation de
+produits, analyse du comportement client.​
+●​ Dans la logistique : optimisation des itinéraires, gestion des stocks, véhicules autonomes.​
+●​ Dans les ressources humaines : tri automatique des CV, recrutement intelligent, suivi de
+carrière, formation personnalisée.​
+
+L’IA devient ainsi un levier d’innovation, de compétitivité et de gain de temps.​
+Elle ne vise pas à remplacer l’humain, mais à l’assister dans les tâches répétitives et à lui permettre
+de se concentrer sur les missions à forte valeur ajoutée, comme la stratégie, la créativité ou la
+relation humaine.
+
+3.​ Application de l’IA dans les Ressources Humaines
+Le domaine des ressources humaines (RH) a connu ces dernières années une transformation majeure
+grâce à l’IA.​
+Le volume croissant de candidatures, la diversité des profils et la recherche d’efficacité ont poussé les
+entreprises à automatiser certaines étapes du processus de recrutement.
+L’intelligence artificielle intervient notamment dans :
+●​ L’analyse et le tri automatique des CV :​
+Les algorithmes identifient les compétences clés, les mots-clés pertinents et calculent le taux de
+correspondance entre un CV et une offre d’emploi.
+●​ La présélection des candidats :​
+L’IA peut classer les profils selon leur adéquation avec le poste, réduisant ainsi la charge de
+
+6
+
+●​ travail des recruteurs.​
+●​ L’entretien virtuel et la reconnaissance vocale :​
+Certains outils d’IA peuvent analyser le ton, le vocabulaire ou les expressions faciales des
+candidats pour aider à une évaluation plus complète.​
+●​ La gestion du parcours professionnel :​
+L’IA peut recommander des formations adaptées aux compétences et aux objectifs de chaque
+employé.​
+
+En résumé, l’IA dans les RH vise à accélérer le processus de recrutement, améliorer la qualité des
+sélections et réduire les biais humains.​
+Elle devient un partenaire stratégique qui soutient les services RH dans leurs décisions.
+
+4.​ Les Fondements de L’IA
+L’intelligence artificielle repose sur un ensemble de principes fondamentaux qui permettent aux machines
+d’apprendre, de raisonner et d’agir.​
+Pour comprendre comment elle fonctionne, il faut examiner ses trois piliers essentiels :​
+les données, les algorithmes d’apprentissage, et le processus d’entraînement et de décision.
+
+4.1.​ Les trois (03) du fonctionnement de l’IA
+4.1.1.​
+
+Les données : le carburant de l’intelligence artificielle
+
+Les données sont la base de tout système d’IA.​
+Elles représentent les informations brutes que la machine va analyser pour en tirer des
+connaissances ou des modèles de comportement.​
+Ces données peuvent être de différents types :
+●​
+●​
+●​
+●​
+
+Textuelles : documents, e-mails, articles, CV, etc.
+Visuelles : images, vidéos, schémas.
+Sonores : voix, musique, bruits.
+Numériques : chiffres, mesures, statistiques.
+
+Plus la quantité et la qualité des données sont élevées, plus l’intelligence artificielle peut
+apprendre efficacement et produire des résultats fiables.​
+C’est pourquoi on dit souvent que “les données sont le nouveau pétrole” de l’économie
+numérique.
+4.1.2.​
+
+Les algorithmes d’apprentissage : le cerveau de l’IA
+
+Les algorithmes sont des ensembles de règles ou d’instructions que la machine suit pour
+analyser les données, détecter des motifs et prendre des décisions.​
+Dans le cadre de l’IA, ces algorithmes permettent à la machine d’apprendre automatiquement à
+partir des données sans être explicitement programmée pour chaque tâche.
+
+7
+
+Les principaux types d’algorithmes d’apprentissage sont :
+1.​ L’apprentissage supervisé :​
+○​ La machine apprend à partir d’exemples déjà étiquetés.​
+○​ Exemple : on fournit à un modèle des CV “acceptés” et “refusés” pour qu’il
+apprenne à reconnaître les critères d’un bon profil.​
+2.​ L’apprentissage non supervisé :​
+○​ La machine découvre seule des structures ou des regroupements dans les
+données.​
+○​ Exemple : elle peut regrouper les CV en catégories de compétences similaires
+(data, marketing, développement, etc.).​
+3.​ L’apprentissage par renforcement :​
+○​ Le modèle apprend en interagissant avec un environnement et en recevant des
+récompenses ou des pénalités selon ses actions.​
+○​ Exemple : un système RH pourrait apprendre à optimiser le tri de CV en fonction
+des retours positifs des recruteurs.​
+
+Ces algorithmes constituent le cœur du raisonnement de la machine, tout comme le cerveau
+pour un être humain.
+4.1.3.​
+
+L’entraînement et la prise de décision : le cœur du processus
+
+Une fois que la machine dispose de données et d’un algorithme, elle doit s’entraîner pour
+améliorer ses performances.​
+L’entraînement consiste à présenter un grand nombre d’exemples au système, afin qu’il identifie
+les relations entre les variables et ajuste ses calculs internes.
+Ce processus passe par plusieurs étapes :
+1.​ Préparation et nettoyage des données : suppression des erreurs, des doublons et
+normalisation des formats.
+2.​ Entraînement du modèle : la machine apprend à repérer des motifs récurrents dans les
+données.
+3.​ Évaluation du modèle : on teste le système avec de nouvelles données pour mesurer sa
+fiabilité.
+4.​ Optimisation : on ajuste les paramètres pour améliorer la précision.​
+
+8
+
+Une fois entraînée, l’IA peut prendre des décisions autonomes à partir de nouvelles
+informations.​
+Dans le cas de la lecture des CV, elle pourra par exemple :
+●​ détecter les mots-clés liés au poste,​
+●​ calculer un score de correspondance,​
+●​ et classer automatiquement les profils par ordre de pertinence.
+
+4.2.​ Cycle general de fonctionnement d’un système d’IA
+Le fonctionnement d’un système d’intelligence artificielle suit généralement un cycle logique en
+plusieurs étapes :
+1.​ Collecte des données : rassemblement des informations nécessaires (ex. : CV, fiches de poste,
+historiques de recrutement).​
+2.​ Prétraitement : nettoyage et mise en forme des données pour qu’elles soient exploitables par la
+machine.​
+3.​ Apprentissage : entraînement du modèle d’IA à reconnaître des motifs ou à établir des
+corrélations.​
+4.​ Prédiction / Décision : utilisation du modèle entraîné pour produire des résultats (classement,
+analyse, recommandation, etc.).​
+5.​ Évaluation et amélioration continue : comparaison entre les prédictions et la réalité pour
+affiner le modèle au fil du temps.
+Ce cycle est continu : l’IA s’améliore au fur et à mesure qu’elle reçoit de nouvelles données et qu’elle
+apprend de ses erreurs.​
+C’est ce qui fait sa puissance : une capacité d’évolution et d’adaptation impossible pour un
+programme informatique classique.
+
+5. Les Types d’IA
+L’intelligence artificielle peut être classée selon le niveau de complexité, le degré d’autonomie et les
+capacités cognitives qu’elle reproduit.​
+On distingue généralement trois grands types d’IA : l’IA faible, l’IA forte, et l’IA super-intelligente.
+
+5.1 L’IA faible (ou spécialisée)
+L’IA faible, encore appelée IA étroite (Narrow AI), est le type d’intelligence artificielle le plus
+répandu aujourd’hui.​
+Elle est conçue pour accomplir une tâche spécifique sans réelle compréhension globale du
+monde.
+9
+
+Caractéristiques :
+●​ Elle agit dans un domaine précis (traduction, reconnaissance vocale, recommandation,
+tri de CV…).
+●​ Elle ne “comprend” pas ce qu’elle fait, mais exécute des règles apprises à partir de
+données.
+●​ Elle dépend totalement de la programmation et des données fournies.
+Exemples :
+●​ Les assistants vocaux comme Siri, Alexa ou Google Assistant.
+●​ Les systèmes de recommandation de Netflix ou YouTube.
+●​ Les outils de lecture automatique de CV utilisés en ressources humaines.
+
+5.2 L’IA forte (ou générale)
+L’IA forte, ou IA générale (General AI), représente une étape plus avancée.​
+C’est une machine qui serait capable de comprendre, d’apprendre et de raisonner de manière
+similaire à un être humain, dans tout type de situation.
+Caractéristiques :
+●​ Elle peut transférer ses connaissances d’un domaine à un autre.
+●​ Elle possède une forme de conscience, de raisonnement logique et d’adaptation.
+●​ Elle pourrait dialoguer, apprendre seule, et comprendre le contexte comme un humain.
+État actuel :​
+Cette forme d’intelligence n’existe pas encore.​
+Les chercheurs travaillent sur des modèles de raisonnement symbolique et cognitif, mais
+aucune machine n’a atteint une compréhension réellement humaine.
+
+5.3 L’IA super-intelligente
+L’IA super-intelligente est une hypothèse théorique d’une machine qui surpasserait l’intelligence
+humaine dans tous les domaines : logique, créativité, intuition, émotion, stratégie, etc.
+Caractéristiques :
+●​ Elle pourrait s’améliorer elle-même sans intervention humaine.
+●​ Elle aurait une capacité d’analyse et de décision bien supérieure à celle de l’homme.
+●​ Elle soulève des questions éthiques et philosophiques majeures sur le contrôle et la
+responsabilité.
+Exemples (théoriques) :
+●​ Les intelligences artificielles de science-fiction (comme celles vues dans les films Her, Ex
+Machina ou Matrix).
+Même si ce niveau d’intelligence reste hypothétique, il alimente les réflexions sur les limites et
+la sécurité de l’IA.
+10
+
+6. Le fonctionnement général d’un système d’intelligence
+artificielle
+Pour comprendre concrètement comment l’IA parvient à prendre des décisions intelligentes, il faut
+analyser le cycle global de son fonctionnement. Ce cycle se compose de plusieurs étapes logiques et
+interdépendantes, qui transforment les données brutes en résultats exploitables.
+6.1 Du traitement des données à la prise de décision
+​
+
+Le fonctionnement d’un système d’IA repose sur une chaîne d’opérations successives :
+
+a. Collecte et intégration des données
+Le système rassemble les informations provenant de différentes sources :​
+bases de données, documents, capteurs, sites web, fichiers clients ou CV.​
+Ces données constituent la matière première du modèle.
+
+b. Nettoyage et préparation des données
+Avant d’être utilisées, les données doivent être nettoyées et standardisées :
+●​ suppression des erreurs, doublons, incohérences ;
+●​ conversion des formats ;
+●​ mise en cohérence des variables (par exemple : noms, compétences, dates).
+Dans un projet RH, cela revient à extraire le texte des CV et à uniformiser les rubriques
+(formation, expérience, compétences).
+
+c. Entraînement du modèle
+L’IA apprend à partir de ces données pour établir des liens logiques ou des modèles
+statistiques.​
+C’est à ce moment qu’interviennent les algorithmes de Machine Learning ou de Deep
+Learning.
+
+d. Inférence ou prédiction
+Une fois entraîné, le modèle peut analyser de nouvelles données et produire une sortie :
+●​ classer un profil,
+●​ prédire un résultat,
+●​ recommander une action.
+
+e. Évaluation et amélioration continue
+Les performances du modèle sont comparées à la réalité.​
+En cas d’erreur, on ré-entraîne le système avec de nouvelles données pour le rendre plus
+11
+
+précis.​
+Ce principe d’apprentissage continu est ce qui différencie une IA d’un programme
+informatique classique.
+6.2 Le principe d’apprentissage continu
+Contrairement aux logiciels traditionnels, une IA s’améliore au fil du temps.​
+Chaque fois qu’elle reçoit de nouvelles données ou des retours d’utilisation, elle ajuste ses
+calculs internes pour devenir plus performante.
+Ce mécanisme, appelé “boucle d’apprentissage”, repose sur :
+●​ la mise à jour régulière des données,
+●​ la correction des erreurs,
+●​ et la reconfiguration automatique du modèle.
+Exemple concret :​
+un système de tri de CV qui remarque que les recruteurs valident souvent des profils dotés
+d’une compétence particulière (ex. “Python”) apprendra progressivement à valoriser cette
+compétence dans ses futurs classements.
+
+6.3 Exemples d’applications concrètes
+Voici quelques cas illustrant ce fonctionnement :
+●​ Reconnaissance faciale : collecte d’images → apprentissage des visages →
+identification d’une personne.
+●​ Voitures autonomes : capteurs → analyse des signaux → décision de freinage ou
+d’accélération.
+●​ Recrutement automatisé : CV + offre d’emploi → extraction des mots-clés → calcul du
+taux de correspondance → classement automatique.​
+
+Ainsi, quelle que soit l’application, le principe reste le même :
+Des données → un apprentissage → une décision → une amélioration continue.
+
+12
+
+PARTIE 2: L’intelligence artificielle dans les Ressources Humaines
+
+13
+
+Les ressources humaines (RH) sont au cœur de toute organisation. Elles assurent la gestion du personnel, le
+recrutement, la formation et la performance des collaborateurs. Avec l’arrivée du numérique et des grands
+volumes de données, le rôle des RH a profondément évolué. L’intelligence artificielle (IA) s’est imposée comme
+un outil stratégique permettant de rendre ces fonctions plus rapides, plus objectives et plus efficaces.
+
+1.​ Domaines d’application de l’IA dans les RH
+L’IA intervient aujourd’hui dans plusieurs dimensions de la gestion des ressources humaines.
+
+Tri et lecture automatique des CV
+L’une des tâches les plus longues pour les recruteurs est de parcourir des centaines de candidatures
+pour un seul poste.​
+Les systèmes d’IA peuvent analyser automatiquement les CV, repérer les mots-clés, identifier les
+compétences et calculer un score de correspondance entre un candidat et un poste.
+Avantages :
+●​ Gain de temps considérable.
+●​ Réduction des erreurs humaines.
+●​ Sélection plus objective basée sur les compétences.​
+
+Exemple :​
+Un algorithme peut extraire les compétences d’un CV (“Python”, “analyse de données”, “Power BI”) et les
+comparer à celles exigées dans une offre d’emploi. Le candidat ayant le plus fort taux de correspondance
+sera placé en tête de la liste.
+
+b. Recommandation de profils
+Certains outils d’IA sont capables de recommander automatiquement des candidats à partir de
+grandes bases de données, comme LinkedIn ou des plateformes de recrutement.​
+Le système repère les profils similaires à ceux des employés performants ou à ceux recherchés par
+l’entreprise.
+Exemple :​
+Un recruteur recherche un “Data Analyst”. L’IA propose automatiquement des profils similaires, même
+si le titre exact du poste diffère (“Analyste données”, “BI Specialist”, etc.).
+
+c. Automatisation des entretiens et tâches administratives
+Des chatbots RH assistés par l’IA peuvent désormais :
+●​ répondre aux questions fréquentes des candidats (sur le poste, les horaires, les conditions),​
+●​ fixer des rendez-vous d’entretien,​
+
+14
+
+●​ collecter des informations de base avant le contact humain.​
+
+Cela permet aux équipes RH de se concentrer sur l’évaluation qualitative des candidats.
+
+d. Détection des incohérences et amélioration du recrutement
+Certains systèmes d’IA peuvent détecter des incohérences dans les CV (dates non logiques, plagiats,
+contradictions, etc.).​
+D’autres vont plus loin en évaluant le langage corporel ou le ton de voix pendant les entretiens pour
+détecter la confiance, la motivation ou la sincérité.
+Bien sûr, ces outils doivent être utilisés avec prudence, pour éviter les biais ou les jugements abusifs.
+
+2.​ Bénéfices et limites de l’IA dans le recrutement
+​
+
+Les bénéfices :
+●​ Gain de temps : automatisation du tri et de la présélection.
+●​ Amélioration de la qualité des recrutements : choix plus pertinents basés sur des critères
+objectifs.
+●​ Réduction des coûts : moins d’heures passées sur des tâches répétitives.
+●​ Meilleure expérience candidat : réponses plus rapides, processus simplifié.​
+
+Les limites :
+●​ Risque de biais algorithmiques : si les données d’entraînement contiennent des
+discriminations, l’IA peut les reproduire.
+●​ Manque d’émotion et d’intuition humaine : certaines qualités comme la créativité ou la
+motivation ne sont pas toujours mesurables.
+●​ Nécessité d’un encadrement humain : l’IA doit être un outil d’aide, non de remplacement.
+
+3.​ Cas pratique: Automatisation de la lecture et du
+classement des CV
+3.1.​ Objectif du système
+L’objectif est de créer un outil intelligent capable de :
+●​
+●​
+●​
+●​
+●​
+
+lire automatiquement les CV reçus,
+analyser leur contenu,
+détecter les mots-clés pertinents,
+comparer les compétences avec les exigences d’un poste,
+et classer les CV par ordre de correspondance.
+
+15
+
+Ce système vise à accélérer la phase de présélection tout en améliorant la cohérence et la
+précision du processus de recrutement.
+
+3.2.​
+
+Fonctionnement global du processus
+Le processus complet se déroule en quatre grandes étapes :
+3.2.1.​
+
+Étape 1 : Extraction du contenu des CV
+Les CV sont souvent reçus dans des formats variés (PDF, Word, etc.).​
+L’IA commence par extraire automatiquement le texte à l’aide d’outils d’OCR
+(reconnaissance de texte) et de parsing de documents.
+Exemple :​
+“Expérience : Analyste Data chez XYZ (2019-2022) devient une donnée structurée
+dans la base de l’IA.
+
+3.2.2.​
+
+Étape 2 : Analyse et parsing des informations
+Une fois le texte extrait, l’IA identifie les parties importantes du CV :
+●​ nom, formation, expériences, compétences techniques et linguistiques.
+Elle utilise pour cela des techniques de traitement du langage naturel (NLP),
+capables de comprendre le sens des phrases et de repérer les informations clés.
+Exemple :​
+L’expression “Développement d’un modèle prédictif avec Python et Scikit-Learn”
+est reconnue comme une compétence technique.
+
+3.2.3.​
+
+Étape 3 : Calcul du score de correspondance
+L’IA compare ensuite les informations extraites du CV à celles de la fiche de
+poste.
+Elle calcule un taux de similarité (score de correspondance) basé sur les
+mots-clés et la proximité sémantique.
+
+​
+
+​
+
+3.2.4.​
+
+Étape 4 : Classement automatique des CV
+
+​
+
+Les CV sont ensuite classés dans un dossier selon leur score de correspondance :
+●​ Dossier 1 : correspondance supérieure à 80 %
+●​ Dossier 2 : correspondance entre 60 % et 80 %
+●​ Dossier 3 : correspondance inférieure à 60 %
+
+Ce classement peut être automatisé à l’aide d’un script Python (par exemple) ou d’une
+API IA spécialisée.​
+Le recruteur n’a plus qu’à consulter le dossier correspondant aux meilleurs profils.
+
+16
+
+3.3.​ Les trois approches possibles
+3.3.1.​
+
+Script interne (prototype rapide, tout en local)
+Principe
+Un ou plusieurs scripts (souvent en Python) traitent des dossiers de CV : extraction du
+texte → règles / keywords → scoring simple → tri/déplacement ou export CSV. Idéal
+pour un proof-of-concept (PoC).
+
+Architecture (simple)
+Dossier_CV → Script Python (extraction) → Scoring (keywords + fuzzy) →
+sorted_by_score/xx_yy ou CSV/Excel
+
+Stack technique conseillé
+●​
+●​
+●​
+●​
+●​
+
+Langage : Python
+Extraction texte : pdfminer.six, python-docx, textract ou Apache Tika
+OCR (si scans) : Tesseract
+Traitement texte : regex, NLTK, spaCy (basique)
+Similarité et fuzzy : fuzzywuzzy (rapidfuzz recommandé), scikit-learn
+(CountVectorizer/Tfidf)
+●​ Stockage résultats : CSV / SQLite / Excel (pandas)
+●​ Automatisation : cron (Linux) / Task Scheduler (Windows) / watcher filesystem
+(watchdog)
+
+Étapes d’implémentation (détail)
+1.​ Inventaire : identifier formats reçus (PDF, DOCX, images), volume moyen/jour.
+2.​ Extraction : écrire fonctions robustes pour lire chaque format ; prévoir
+traitement erreurs.
+3.​ Nettoyage : normaliser texte (lowercase, suppression stopwords, lemmatisation
+si besoin).
+4.​ Règles métiers : liste de mots-clés obligatoires / facultatifs, pondérations.
+5.​ Scoring : combiner (keywords presence %, tf-idf similarity, fuzzy title match).
+6.​ Tri & export : dossiers par fourchettes, CSV récapitulatif avec justification du
+score (transparence)
+7.​ Tests : échantillon managé par RH (50–200 CV) pour régler seuils et
+pondérations.
+8.​ Déploiement : héberger sur VM interne ou poste RH, automatiser déclencheur.
+9.​ Maintenance : logs, gestion erreurs, ré-entraînement (si apprentissage minimal).
+
+17
+
+Points forts
+●​ Très rapide à développer (jours → semaines).
+●​ Coût logiciel quasi nul.
+●​ Contrôle total des règles métiers.
+
+Limitations / risques
+●​ Faible robustesse (CV mal formatés, OCR imperfect).
+●​ Scores peu sémantiques (ne « comprennent » pas le sens) → faux
+négatifs/positifs.
+●​ Maintenance et scalabilité manuelle.
+●​ Conformité et sécurité à mettre en place par l’entreprise.
+
+Coûts (ordre de grandeur)
+●​ Dev initial : 1–2 dev days → 0–3k€ selon temps.
+●​ Infrastructure : faible (VM interne).
+●​ Coût humain de maintenance = principal poste.
+
+Indicateurs / métriques à suivre
+●​ Taux d’erreurs d’extraction (% CV non lisibles)
+●​ Rappel / précision (en test humain) — % de CV pertinents correctement classés
+●​ Temps moyen par CV traité​
+
+Quand choisir ?
+●​ Volume faible à modéré, budget limité, besoin rapide de PoC, équipe non dédiée
+data.​
+
+3.2.2. Solution open-source / IA auto-hébergée (approche sciemment
+technique)
+Principe
+Utiliser des bibliothèques et modèles NLP (sentence-transformers, spaCy, Hugging Face)
+pour faire parsing, NER, et scoring sémantique via embeddings. Hébergement en interne
+(ou cloud privé).
+
+18
+
+Architecture (typique, production légère)
+Ingestion (S3 / dossier)
+→ Preprocessing (OCR, normalisation)
+→ Parsing/NER (spaCy / custom models)
+→ Embeddings (sentence-transformers)
+→ Vector DB (FAISS / Milvus / Weaviate)
+→ Matching engine (cosine similarity + business rules)
+→ API interne / Dashboard RH
+
+Stack technique conseillé
+●​
+●​
+●​
+●​
+●​
+●​
+●​
+●​
+
+Extraction & OCR : Tika, Tesseract, pdfplumber
+Parsing & NER : spaCy (fr model), stanza
+Embeddings : sentence-transformers (type all-MiniLM-* pour rapidité)
+Vector DB : FAISS (on-prem), Milvus, ou Weaviate
+Back-end : Python Flask / FastAPI
+Orchestration : Docker + Kubernetes (si volume large)
+Monitoring : Prometheus / Grafana
+Auth & sécurité : OAuth2 / TLS / chiffrement des données
+
+Étapes d’implémentation (détail)
+1.​ Poc + dataset : rassembler CV anonymisés + fiches postes.
+2.​ Prétraitement : OCR, segmentation en sections (expérience, formation,
+compétences).
+3.​ Annotation (optionnel) : annoter NER pour améliorer extraction (si modèle
+custom).
+4.​ Training / fine-tuning : fine-tuner spaCy / transformers si nécessaire (français).
+5.​ Indexation embeddings : calcul embeddings CV + offres → indexer dans Vector
+DB.
+6.​ Matching logic : règles (exigences obligatoires), scoring combiné (embeddings +
+keywords + expérience années).
+7.​ API & UI : endpoint pour ingestion + dashboard qui montre score détaillé et
+raisons.
+8.​ Tests A/B : comparer suggestions IA vs décision humaine, ajuster pondérations.
+9.​ Déploiement & CI/CD : pipelines pour déployer modèles/versions.
+10.​Gouvernance : logs, audit trail, anonymisation, processus de suppression
+(RGPD).​
+
+19
+
+Points forts
+●​ Contrôle total + personnalisation avancée (domaines métiers, langue locale).
+●​ Meilleure qualité sémantique (moins sensible au wording).
+●​ Évolutif (vector DB + nouveaux modèles).​
+
+Limitations / risques
+●​
+●​
+●​
+●​
+
+Besoin d’expertise ML/NLP pour tuning et maintenance.
+Coût infra plus élevé que script simple (GPU pour entraînement éventuellement).
+Temps de mise en place plus long (semaines → mois).
+Risques biais si dataset d’entraînement non contrôlé.​
+
+Coûts (ordre de grandeur)
+●​ Dev initial : 2–8 semaines (varie selon scope) → 5–40k€ en prestation externe.
+●​ Infra : VM, stockage, éventuellement GPU (si fine-tuning) → 100–1000€/mois
+selon volume.
+●​ Maintenance : ingénieur ML 0.2–1 ETP selon taille.
+
+Indicateurs / métriques à suivre
+●​
+●​
+●​
+●​
+
+Mean Reciprocal Rank (MRR) / NDCG pour ranking
+Recall@k (p.ex. rappel des bons candidats dans top-10)
+Latence de réponse (ms)
+Taux de rejet automatique (pour surveillance biais)
+
+Quand choisir ?
+●​ Entreprise avec équipe data/IT, volumes moyens à élevés, besoin de
+personnalisation forte, ou volonté de garder tout on-prem pour conformité.​
+
+3.3.3. API / solution professionnelle (SaaS) — la voie recommandée en
+entreprise RH
+Principe
+S’abonner à une API/plateforme spécialisée (Affinda, Sovren, RChilli, Textkernel, etc.). Tu
+envoies les CV → tu reçois JSON structuré (parsing) + score de matching. Solutions
+ML/NLP déjà entraînées, maintenance assurée par le fournisseur.
+
+20
+
+Architecture (intégration classique)
+Dossier CV / ATS → requête HTTP vers API SaaS → réponse JSON (structurée) →
+ingestion dans ATS / dashboard → workflow RH + stockage sécurisé
+
+Stack & intégration
+●​
+●​
+●​
+●​
+
+Requêtes REST / SDKs (Python / Node / Java)
+Webhooks pour réponses asynchrones
+Intégration ATS (Workday, SmartRecruiters, Greenhouse) ou stockage DB interne
+Option : Zapier / Power Automate pour automatisation sans code
+
+Étapes d’implémentation (détail)
+1.​ Sélection fournisseur : POC avec 2–3 fournisseurs (qualité parsing, langues,
+conformité).
+2.​ Test d’intégration : envoi de lot de CV test, inspection des JSON retournés.
+3.​ Paramétrage : règles métier, mapping champs vers ATS, seuils de matching.
+4.​ Automatisation : automatiser envoi via webhook ou script ; tri automatique.
+5.​ Formation RH : expliquer scores, interface d’audit (pour vérifier décisions).
+6.​ Sécurité & conformité : SLA, localisation des données, clauses RGPD,
+chiffrement.
+7.​ Monitoring & SLA : alertes erreurs, quotas API, backoff en cas de surcharge.
+
+Points forts
+●​
+●​
+●​
+●​
+
+Rapidité de déploiement (jours → 2 semaines).
+Parsing et matching de haute qualité, multi-langue et robustes (scans inclus).
+Conformité et certifications souvent fournies (aide RGPD).
+Maintenance & mise à jour côté fournisseur.
+
+Limitations / risques
+●​
+●​
+●​
+●​
+
+Coût variable (souvent facturation par CV ou abonnement).
+Moins de personnalisation fine (mais souvent options de configuration).
+Dépendance à un tiers (vendor lock-in possible).
+Nécessite revue juridique pour export / stockage des CV hors juridiction.
+
+Coûts (ordre de grandeur)
+●​ Prix par CV : ~€0.02–€0.20 (selon fournisseur, volume, fonctionnalités).
+●​ Abonnement mensuel possible pour gros volumes.
+●​ Coût total dépend du volume (ex : 10k CV/mois → 200€–2k€/mois).
+
+Indicateurs / métriques à suivre
+●​ Temps moyen pour parsing (latence API)
+21
+
+●​ Taux d’erreurs parsing / champs manquants
+●​ Qualité matching (évaluer avec échantillon RH)
+●​ Coût par CV vs gain de temps (ROI calculé)​
+
+Au-delà de ces trois (03) approches il existe des plateformes qui permettent de mettre en relation
+plusieurs dans le but d’automatiser des tâches beaucoup plus facilement et accessible à tous. Elles sont
+la nouvelle révolution en matière d’automatisation de tâche avec peu ou pas de code. Nous avons: n8n,
+Zapier, make(Intergromat), Microsoft Power Automate
+​
+
+Qu’est-ce que n8n ?
+●​ Type : outil d’automatisation workflow “low-code / no-code”.
+●​ Fonction : connecter différentes applications et automatiser des tâches répétitives.
+●​ Exemples d’usage pour CV :​
+○​ Détecter l’arrivée d’un nouveau CV dans un email ou un dossier cloud (Google
+Drive, OneDrive, Dropbox).
+○​ Extraire le texte d’un fichier PDF/DOCX.
+○​ Analyser le texte pour extraire mots-clés, compétences ou scores.
+○​ Classer, déplacer ou enregistrer les CV dans un dossier ou base de données.
+○​ Notifier les RH par email ou Slack avec le score et CV attachés.​
+
+Fonctionnement général
+●​ Un workflow est un enchaînement de nodes (actions) :
+1.​ Trigger (déclencheur) → ex : nouveau fichier dans un dossier, nouveau mail reçu.
+2.​ Transformation ou traitement → ex : code Python pour extraire texte ou calculer
+score.
+3.​ Sortie / Action → ex : stocker le CV trié, envoyer CSV récapitulatif.
+
+Coût
+●​ Cloud n8n : abonnement payant (à partir d’environ 20 $/mois pour usage léger).
+●​ Self-hosted / local : gratuit (open-source), seul le coût de la machine serveur/VM à
+gérer.
+○​ Avantage : contrôle complet des données et pas de limite sur le nombre
+d’exécutions.
+Astuce pour payer moins :
+●​ Installer n8n en local sur un serveur ou PC interne.
+●​ Utiliser des workflows limités en fréquence (par ex. déclenchement toutes les heures au
+lieu de chaque nouveau fichier).
+
+Autres plateformes similaires
+●​ Zapier : très simple, mais coûteux si volume important.
+22
+
+●​ Make : flexible, visual workflow, coût dépend du nombre de tâches par mois.
+●​ Microsoft Power Automate : intégré à l’écosystème Microsoft, coûteux mais pratique si
+déjà Office 365.​
+
+4.​ Comparatifs et recommandation
+4.1 Recommandation finale pour une mise en œuvre efficace
+Dans notre cas ici il s’agit de l’automatisation du traitement de Cv, n8n serait la meilleur option
+car elle possède les outils nécessaires pour faisabilité de cette tâche et nous permet d’avoir main
+mise sur et de faire des modifications si nécessaire car elle est très flexible.​
+​
+
+Mise en place des outils​
+Pour commencer il faut tout d’abord commencer par savoir quelles sont nos options pour utiliser n8n.
+​
+
+Option 1 : Payer un plan mensuel ou annuel (n8n Cloud)
+Description : Cette option consiste à utiliser n8n via sa plateforme officielle, entièrement hébergée et
+maintenue par l’équipe n8n. Aucune installation n’est nécessaire et tout fonctionne en ligne.
+
+Avantages
+●​
+●​
+●​
+●​
+●​
+
+Pas de maintenance technique (mise à jour, sécurité, serveurs gérés automatiquement).
+Très simple à mettre en place : une création de compte suffit.
+Haute disponibilité et monitoring déjà inclus.
+Backup automatique et support natif.
+Scalable sans effort.
+
+Désavantages
+●​
+●​
+●​
+●​
+
+Plus coûteux que l'auto-hébergement.
+Facturation basée sur l’usage (exécutions), pouvant devenir chère à grande échelle.
+Moins de contrôle technique sur l’infrastructure.
+Personnalisation limitée en comparaison avec l’auto‑hébergement.
+
+Contexte d’usage
+●​ Idéal pour les entreprises ou utilisateurs qui veulent zéro maintenance.
+●​ Parfait pour démarrer rapidement et tester des automatisations.
+●​ Recommandée si la fiabilité absolue et la disponibilité sont prioritaires.
+
+Option 2: Héberger n8n sur un serveur (VPS / cloud privé)
+
+23
+
+Description : Cette option consiste à installer n8n sur un serveur que tu loues toi-même (ex : Contabo,
+OVH, DigitalOcean). Tu contrôles totalement l’environnement et le coût dépend principalement de ton
+serveur.
+
+Avantages
+●​
+●​
+●​
+●​
+
+Coût généralement plus faible qu’un plan officiel n8n Cloud.
+Contrôle total de l’infrastructure (base de données, sécurité, ressources,...).
+Personnalisation complète de l’environnement.
+Peut supporter beaucoup d’exécutions pour un prix très réduit.
+
+Désavantages
+●​ Nécessite des compétences techniques (Linux, Docker, reverse proxy, certificats SSL...).
+●​ Maintenance régulière : mises à jour, monitoring, sécurité.
+●​ Risque de downtime si le serveur tombe ou si les configurations sont mal faites.
+
+Contexte d’usage
+●​ Idéal pour ceux qui veulent réduire les coûts tout en gardant un bon contrôle technique.
+●​ Parfait pour les PME, startups et utilisateurs avancés.
+●​ Recommandé lorsqu’on a un volume élevé d’exécutions.
+
+Option 3: Avoir n8n en local (Node.js ou Docker)
+Description : n8n tourne directement sur ton ordinateur, via Node.js ou Docker. Cette installation
+locale est parfaite pour tester, apprendre ou développer des workflows sans payer d’hébergement.
+
+Avantages
+●​
+●​
+●​
+●​
+
+100% gratuit.
+Parfait pour tester, développer ou faire de petites automatisations personnelles.
+Installation rapide via Node.js ou Docker.
+Aucun coût de serveur.
+
+Désavantages
+●​
+●​
+●​
+●​
+
+Ne convient pas à un usage 24/7 (l’ordinateur doit rester allumé).
+Peu adapté à la production.
+Peut devenir lent ou instable si utilisé pour de gros workflows.
+Sécurité et sauvegarde à gérer soi-même.
+
+Contexte d’usage
+●​ Idéal pour apprendre, développer ou tester des workflows.
+●​ Recommandé pour des usages internes, personnels ou non critiques.
+●​ Parfait pour créer localement avant de déployer sur un serveur ou n8n Cloud.​
+
+24
+
+4.2 Etape de réalisation de l’ajout du matching IA
+
+Phase 0: Choix et Installation de n8n
+Décision d'hébergement n8n
+Quoi faire: Choisir entre n8n Cloud ou n8n Self-Hosted​
+Options disponibles:
+Option 1: n8n Cloud (Solution Managée)
+●​ Coût: 24$/mois pour 2 500 exécutions​
+●​ Avantages: Installation instantanée, maintenance zéro, SSL automatique
+●​ Inconvénients: Coûteux pour gros volumes (>10 000 exécutions/mois), limites
+strictes
+●​ Recommandé pour: Tests rapides, faibles volumes
+Option 2: n8n Self-Hosted sur VPS (Solution Recommandée)
+●​ Coût: 5-15$/mois pour VPS + coût infrastructure​
+●​ Avantages: Exécutions illimitées, contrôle total, économique à grande échelle
+●​ Inconvénients: Nécessite configuration initiale et maintenance
+●​ Recommandé pour: Production, gros volumes de CV
+Pourquoi Self-Hosted: Pour votre projet avec potentiellement des centaines ou milliers de
+CV à analyser, le self-hosting est 5-10x plus économique qu'n8n Cloud.​
+
+Installation n8n Self-Hosted avec Docker
+Quoi faire: Installer n8n sur un serveur VPS via Docker​
+Où: Sur un VPS Linux (Ubuntu 20.04/22.04 recommandé) avec minimum 4GB RAM et 2 vCPU​
+Prérequis:
+●​ Un VPS (DigitalOcean, Contabo, OVH, etc.)
+●​ Un nom de domaine (ex: n8n.votre-domaine.com)
+●​ Accès SSH au serveur
+Comment - Étape par étape:
+
+25
+
+0.1: Connexion SSH et préparation du serveur
+# Se connecter au VPS
+ssh root@votre_ip_serveur
+# Mettre à jour le système
+apt update && apt upgrade -y
+# Installer Docker et Docker Compose
+apt install docker.io docker-compose -y
+# Vérifier l'installation
+docker --version
+docker-compose --version
+# Démarrer Docker au boot
+systemctl enable docker
+systemctl start docker
+
+Pourquoi Docker: Docker isole n8n dans un conteneur, évitant les conflits de dépendances et
+facilitant les mises à jour.​
+
+0.2: Configuration du domaine
+Quoi faire: Pointer votre sous-domaine vers le VPS
+Où: Dans votre gestionnaire DNS (Cloudflare, OVH, etc.)
+Comment:
+●​ Créer un enregistrement A: n8n.votre-domaine.com → IP_DE_VOTRE_VPS
+●​ Attendre la propagation DNS (5-30 minutes)
+Pourquoi: n8n nécessite HTTPS pour les webhooks en production, et un domaine facilite
+l'obtention d'un certificat SSL.​
+
+0.3: Créer la configuration Docker Compose
+Quoi faire: Créer un fichier docker-compose.yml complet avec PostgreSQL, n8n et Traefik
+(reverse proxy SSL)​
+Où: Dans /root/n8n/
+bash
+26
+
+# Créer le répertoire
+mkdir -p ~/n8n && cd ~/n8n
+
+# Créer le fichier de variables d'environnement
+nano .env
+Contenu du fichier .env:
+# Configuration générale
+GENERIC_TIMEZONE=Africa/Lagos
+DOMAIN_NAME=votre-domaine.com
+SUBDOMAIN=n8n
+EMAIL=votre-email@domaine.com
+# Authentification n8n
+N8N_BASIC_AUTH_ACTIVE=true
+N8N_BASIC_AUTH_USER=admin
+N8N_BASIC_AUTH_PASSWORD=VotreMotDePasseSecurise123!
+# Configuration PostgreSQL
+DB_TYPE=postgresdb
+DB_POSTGRESDB_DATABASE=n8n
+DB_POSTGRESDB_HOST=postgres
+DB_POSTGRESDB_PORT=5432
+DB_POSTGRESDB_USER=n8n_user
+DB_POSTGRESDB_PASSWORD=PostgresMotDePasseSecurise456!
+# Configuration OpenAI (pour l'analyse IA)
+OPENAI_API_KEY=sk-votre-cle-api-openai-ici
+
+Créer le fichier docker-compose.yml:
+bash
+nano docker-compose.yml
+Contenu docker-compose.yml (Configuration Production-Ready):
+27
+
+text
+version: '3.8'
+
+services:
+traefik:
+image: traefik:v2.9
+restart: unless-stopped
+command:
+- --api=true
+- --api.insecure=false
+- --providers.docker=true
+- --providers.docker.exposedbydefault=false
+- --entrypoints.web.address=:80
+- --entrypoints.websecure.address=:443
+--certificatesresolvers.mytlschallenge.acme.tlschallenge=true
+- --certificatesresolvers.mytlschallenge.acme.email=${EMAIL}
+--certificatesresolvers.mytlschallenge.acme.storage=/letsencrypt/acm
+e.json
+ports:
+- "80:80"
+- "443:443"
+volumes:
+- traefik_data:/letsencrypt
+- /var/run/docker.sock:/var/run/docker.sock:ro
+networks:
+- n8n_network
+
+postgres:
+28
+
+image: postgres:15
+restart: unless-stopped
+environment:
+POSTGRES_USER: ${DB_POSTGRESDB_USER}
+POSTGRES_PASSWORD: ${DB_POSTGRESDB_PASSWORD}
+POSTGRES_DB: ${DB_POSTGRESDB_DATABASE}
+volumes:
+- postgres_data:/var/lib/postgresql/data
+healthcheck:
+test: ["CMD-SHELL", "pg_isready -U ${DB_POSTGRESDB_USER} -d
+${DB_POSTGRESDB_DATABASE}"]
+interval: 10s
+timeout: 5s
+retries: 5
+networks:
+- n8n_network
+
+n8n:
+image: n8nio/n8n:latest
+restart: unless-stopped
+depends_on:
+postgres:
+condition: service_healthy
+environment:
+# Configuration générale
+- GENERIC_TIMEZONE=${GENERIC_TIMEZONE}
+- TZ=${GENERIC_TIMEZONE}
+- N8N_HOST=${SUBDOMAIN}.${DOMAIN_NAME}
+- N8N_PORT=5678
+- N8N_PROTOCOL=https
+29
+
+- NODE_ENV=production
+- WEBHOOK_URL=https://${SUBDOMAIN}.${DOMAIN_NAME}/
+
+# Authentification
+- N8N_BASIC_AUTH_ACTIVE=${N8N_BASIC_AUTH_ACTIVE}
+- N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+- N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+
+# Base de données
+- DB_TYPE=${DB_TYPE}
+- DB_POSTGRESDB_DATABASE=${DB_POSTGRESDB_DATABASE}
+- DB_POSTGRESDB_HOST=${DB_POSTGRESDB_HOST}
+- DB_POSTGRESDB_PORT=${DB_POSTGRESDB_PORT}
+- DB_POSTGRESDB_USER=${DB_POSTGRESDB_USER}
+- DB_POSTGRESDB_PASSWORD=${DB_POSTGRESDB_PASSWORD}
+
+# Exécution des workflows
+- EXECUTIONS_MODE=queue
+- QUEUE_BULL_REDIS_HOST=redis
+- QUEUE_BULL_REDIS_PORT=6379
+
+# Limites de ressources
+- N8N_PAYLOAD_SIZE_MAX=64
+- EXECUTIONS_DATA_PRUNE=true
+- EXECUTIONS_DATA_MAX_AGE=168
+
+volumes:
+- n8n_data:/home/node/.n8n
+- ./cv-files:/files
+labels:
+30
+
+- traefik.enable=true
+traefik.http.routers.n8n.rule=Host(`${SUBDOMAIN}.${DOMAIN_NAME}`)
+- traefik.http.routers.n8n.tls=true
+- traefik.http.routers.n8n.entrypoints=websecure
+- traefik.http.routers.n8n.tls.certresolver=mytlschallenge
+- traefik.http.services.n8n.loadbalancer.server.port=5678
+networks:
+- n8n_network
+
+redis:
+image: redis:7-alpine
+restart: unless-stopped
+volumes:
+- redis_data:/data
+networks:
+- n8n_network
+
+volumes:
+traefik_data:
+postgres_data:
+n8n_data:
+redis_data:
+
+networks:
+n8n_network:
+driver: bridge
+
+Pourquoi cette architecture:
+●​ Traefik: Gère automatiquement les certificats SSL Let's Encrypt​
+31
+
+●​ PostgreSQL: Base de données robuste pour stocker les workflows et
+exécutions​
+●​ Redis: Active le mode queue pour traiter plusieurs CV simultanément​
+●​ Volumes: Persistent les données même après redémarrage
+
+0.4: Démarrer n8n
+bash
+# Donner les permissions correctes
+chown -R 1000:1000 ~/.n8n
+chmod -R 755 ~/.n8n
+
+# Démarrer tous les services
+docker-compose up -d
+
+# Vérifier que tout fonctionne
+docker-compose ps
+docker-compose logs n8n
+
+# Voir les logs en temps réel
+docker-compose logs -f n8n
+Accès: Ouvrir
+https://n8n.votre-domaine.com
+dans votre navigateur et créer votre compte admin.​
+Pourquoi -d: Lance les conteneurs en arrière-plan pour qu'ils continuent après fermeture du
+terminal.
+
+0.5: Configurer les credentials OpenAI dans n8n
+Quoi faire: Ajouter vos identifiants OpenAI dans n8n pour l'analyse IA​
+
+32
+
+Où: Interface n8n → Settings → Credentials
+Comment:
+1.​ Cliquer sur Credentials dans le menu gauche
+2.​ Cliquer sur + New Credential
+3.​ Chercher et sélectionner OpenAI
+4.​ Entrer votre clé API OpenAI (obtenue sur platform.openai.com)
+5.​ Nommer la credential: OpenAI - CV Matching
+6.​ Sauvegarder
+Pourquoi: n8n utilisera cette credential pour appeler GPT-4 lors de l'analyse des CV.​
+
+Phase 1: Préparation WordPress - Structure de Données Complète
+Créer les tables personnalisées
+Quoi faire: Créer deux tables MySQL avec tous les champs nécessaires
+Où: Dans votre plugin personnalisé
+/wp-content/plugins/cv-matching-ai/cv-matching-ai.php
+Comment:
+php
+<?php
+/**
+* Plugin Name: CV Matching IA
+* Description: Système de matching IA entre fiches de poste et CV via n8n
+* Version: 1.0.0
+* Author: Votre Nom
+*/
+
+if (!defined('ABSPATH')) exit;
+
+// Activation du plugin
+33
+
+register_activation_hook(__FILE__, 'cv_matching_create_tables');
+
+function cv_matching_create_tables() {
+global $wpdb;
+$charset_collate = $wpdb->get_charset_collate();
+
+// Table pour les CV
+$table_cv = $wpdb->prefix . 'cv_database';
+$sql_cv = "CREATE TABLE IF NOT EXISTS $table_cv (
+id bigint(20) NOT NULL AUTO_INCREMENT,
+first_name varchar(100) NOT NULL,
+last_name varchar(100) NOT NULL,
+email varchar(150),
+phone varchar(20),
+cv_file_url varchar(500) NOT NULL,
+cv_text_content longtext NOT NULL,
+cv_pdf_path varchar(500),
+skills longtext,
+experience_years int(3),
+languages text,
+created_at datetime DEFAULT CURRENT_TIMESTAMP,
+updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE
+CURRENT_TIMESTAMP,
+PRIMARY KEY (id),
+KEY email_idx (email)
+) $charset_collate;";
+
+// Table pour les résultats de matching
+$table_results = $wpdb->prefix . 'cv_matching_results';
+$sql_results = "CREATE TABLE IF NOT EXISTS $table_results (
+34
+
+id bigint(20) NOT NULL AUTO_INCREMENT,
+job_post_id bigint(20) NOT NULL,
+cv_id bigint(20) NOT NULL,
+score_percentage int(3) NOT NULL,
+strengths longtext,
+weaknesses longtext,
+keywords_found longtext,
+matching_details longtext,
+analyzed_at datetime DEFAULT CURRENT_TIMESTAMP,
+PRIMARY KEY (id),
+KEY job_post_id (job_post_id),
+KEY cv_id (cv_id),
+KEY score_idx (score_percentage),
+UNIQUE KEY unique_match (job_post_id, cv_id)
+) $charset_collate;";
+
+require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+dbDelta($sql_cv);
+dbDelta($sql_results);
+}
+Pourquoi: La clé UNIQUE sur (job_post_id, cv_id) évite les doublons si le matching est
+relancé. Les index accélèrent les requêtes de recherche.
+
+Créer le Custom Post Type "Fiche de Poste"
+Quoi faire: Créer un CPT avec tous les champs que vous avez spécifiés
+Où: Dans le même fichier plugin
+Comment:
+php
+35
+
+// Enregistrer le Custom Post Type
+add_action('init', 'register_job_posting_cpt');
+
+function register_job_posting_cpt() {
+$labels = array(
+'name' => 'Fiches de Poste',
+'singular_name' => 'Fiche de Poste',
+'add_new' => 'Ajouter une fiche',
+'add_new_item' => 'Nouvelle fiche de poste',
+'edit_item' => 'Modifier la fiche',
+'view_item' => 'Voir la fiche',
+);
+
+$args = array(
+'labels' => $labels,
+'public' => true,
+'has_archive' => true,
+'show_in_rest' => true, // Active REST API
+'supports' => array('title', 'editor', 'custom-fields'),
+'menu_icon' => 'dashicons-businessperson',
+'capability_type' => 'post',
+'rewrite' => array('slug' => 'job-posting'),
+);
+
+register_post_type('job_posting', $args);
+}
+
+// Ajouter les Meta Boxes pour tous les champs
+add_action('add_meta_boxes', 'add_job_posting_meta_boxes');
+
+36
+
+function add_job_posting_meta_boxes() {
+add_meta_box(
+'job_basic_info',
+'Informations de Base',
+'render_job_basic_info_meta_box',
+'job_posting',
+'normal',
+'high'
+);
+
+add_meta_box(
+'job_description',
+'Description et Compétences',
+'render_job_description_meta_box',
+'job_posting',
+'normal',
+'high'
+);
+
+add_meta_box(
+'job_publication',
+'Paramètres de Publication',
+'render_job_publication_meta_box',
+'job_posting',
+'side',
+'default'
+);
+}
+
+function render_job_basic_info_meta_box($post) {
+37
+
+wp_nonce_field('job_meta_nonce', 'job_meta_nonce_field');
+
+// Récupérer les valeurs existantes
+$meta_keywords = get_post_meta($post->ID, 'meta_keywords', true);
+$department = get_post_meta($post->ID, 'department', true);
+$contract_type = get_post_meta($post->ID, 'contract_type', true);
+$company = get_post_meta($post->ID, 'company', true);
+$category = get_post_meta($post->ID, 'category', true);
+$job_type = get_post_meta($post->ID, 'job_type', true);
+$salary_range = get_post_meta($post->ID, 'salary_range', true);
+$tjm = get_post_meta($post->ID, 'tjm', true);
+$languages = get_post_meta($post->ID, 'languages', true);
+$location = get_post_meta($post->ID, 'location', true);
+$nb_posts = get_post_meta($post->ID, 'number_of_positions', true);
+?>
+
+<table class="form-table">
+<tr>
+<th><label for="meta_keywords">Méta Mots-clés</label></th>
+<td>
+<input type="text" id="meta_keywords"
+name="meta_keywords"
+value="<?php echo esc_attr($meta_keywords); ?>"
+class="widefat"
+placeholder="Développeur, PHP, WordPress">
+<p class="description">Séparés par des virgules</p>
+</td>
+</tr>
+
+<tr>
+38
+
+<th><label for="department">Department</label></th>
+<td>
+<input type="text" id="department" name="department"
+value="<?php echo esc_attr($department); ?>"
+class="widefat"
+placeholder="IT, RH, Commercial...">
+</td>
+</tr>
+
+<tr>
+<th><label for="contract_type">CDD/CDI *</label></th>
+<td>
+<select id="contract_type" name="contract_type"
+class="widefat" required>
+<option value="">Sélectionner...</option>
+<option value="CDI" <?php selected($contract_type,
+'CDI'); ?>>CDI</option>
+<option value="CDD" <?php selected($contract_type,
+'CDD'); ?>>CDD</option>
+<option value="Stage" <?php selected($contract_type,
+'Stage'); ?>>Stage</option>
+<option value="Freelance" <?php
+selected($contract_type, 'Freelance'); ?>>Freelance</option>
+</select>
+</td>
+</tr>
+
+<tr>
+<th><label for="company">Company *</label></th>
+<td>
+<input type="text" id="company" name="company"
+39
+
+value="<?php echo esc_attr($company); ?>"
+class="widefat" required
+placeholder="Nom de l'entreprise">
+</td>
+</tr>
+
+<tr>
+<th><label for="category">Category *</label></th>
+<td>
+<select id="category" name="category" class="widefat"
+required>
+<option value="">Sélectionner...</option>
+<option value="Développement" <?php
+selected($category, 'Développement'); ?>>Développement</option>
+<option value="Design" <?php selected($category,
+'Design'); ?>>Design</option>
+<option value="Marketing" <?php selected($category,
+'Marketing'); ?>>Marketing</option>
+<option value="Commercial" <?php selected($category,
+'Commercial'); ?>>Commercial</option>
+<option value="RH" <?php selected($category, 'RH');
+?>>RH</option>
+<option value="Finance" <?php selected($category,
+'Finance'); ?>>Finance</option>
+<option value="Autre" <?php selected($category,
+'Autre'); ?>>Autre</option>
+</select>
+</td>
+</tr>
+
+<tr>
+<th><label for="job_type">Type *</label></th>
+40
+
+<td>
+<select id="job_type" name="job_type" class="widefat"
+required>
+<option value="">Sélectionner...</option>
+<option value="Temps plein" <?php selected($job_type,
+'Temps plein'); ?>>Temps plein</option>
+<option value="Temps partiel" <?php
+selected($job_type, 'Temps partiel'); ?>>Temps partiel</option>
+<option value="Remote" <?php selected($job_type,
+'Remote'); ?>>Remote</option>
+<option value="Hybride" <?php selected($job_type,
+'Hybride'); ?>>Hybride</option>
+</select>
+</td>
+</tr>
+
+<tr>
+<th><label for="salary_range">Salary Range</label></th>
+<td>
+<input type="text" id="salary_range" name="salary_range"
+value="<?php echo esc_attr($salary_range); ?>"
+class="widefat"
+placeholder="30 000 - 45 000 € par an">
+</td>
+</tr>
+
+<tr>
+<th><label for="tjm">TJM *</label></th>
+<td>
+<input type="text" id="tjm" name="tjm"
+value="<?php echo esc_attr($tjm); ?>"
+41
+
+class="widefat" required
+placeholder="400-600€">
+<p class="description">Taux Journalier Moyen</p>
+</td>
+</tr>
+<tr>
+<th><label for="languages">Langue(s)</label></th>
+<td>
+<input type="text" id="languages" name="languages"
+value="<?php echo esc_attr($languages); ?>"
+class="widefat"
+placeholder="Français, Anglais, Espagnol">
+</td>
+</tr>
+
+<tr>
+<th><label for="location">Localisation *</label></th>
+<td>
+<input type="text" id="location" name="location"
+value="<?php echo esc_attr($location); ?>"
+class="widefat" required
+placeholder="Paris, France">
+</td>
+</tr>
+
+<tr>
+<th><label for="number_of_positions">Nombre de
+poste</label></th>
+<td>
+
+42
+
+<input type="number" id="number_of_positions"
+name="number_of_positions"
+value="<?php echo esc_attr($nb_posts ?: 1); ?>"
+class="small-text" min="1">
+</td>
+</tr>
+</table>
+<?php
+}
+
+function render_job_description_meta_box($post) {
+$job_description = get_post_meta($post->ID, 'job_description', true);
+$skills = get_post_meta($post->ID, 'skills', true);
+$constraints = get_post_meta($post->ID, 'project_constraints', true);
+?>
+
+<table class="form-table">
+<tr>
+<th><label for="job_description">Description du poste
+*</label></th>
+<td>
+<textarea id="job_description" name="job_description"
+rows="8" class="widefat" required><?php echo
+esc_textarea($job_description); ?></textarea>
+<p class="description">Décrivez en détail les missions et
+responsabilités</p>
+</td>
+</tr>
+
+<tr>
+<th><label for="skills">Compétences</label></th>
+43
+
+<td>
+<textarea id="skills" name="skills"
+rows="5" class="widefat"><?php echo
+esc_textarea($skills); ?></textarea>
+<p class="description">Compétences techniques et soft
+skills requises</p>
+</td>
+</tr>
+
+<tr>
+<th><label for="project_constraints">Contrainte forte du
+projet</label></th>
+<td>
+<textarea id="project_constraints"
+name="project_constraints"
+rows="4" class="widefat"><?php echo
+esc_textarea($constraints); ?></textarea>
+<p class="description">Contraintes particulières (délais,
+certifications...)</p>
+</td>
+</tr>
+</table>
+<?php
+}
+
+function render_job_publication_meta_box($post) {
+$start_date = get_post_meta($post->ID, 'start_publishing', true);
+$end_date = get_post_meta($post->ID, 'end_publishing', true);
+?>
+
+<p>
+44
+
+<label for="start_publishing"><strong>Start
+Publishing</strong></label><br>
+<input type="date" id="start_publishing" name="start_publishing"
+value="<?php echo esc_attr($start_date); ?>"
+class="widefat">
+</p>
+
+<p>
+<label for="end_publishing"><strong>Fin de
+publication</strong></label><br>
+<input type="date" id="end_publishing" name="end_publishing"
+value="<?php echo esc_attr($end_date); ?>"
+class="widefat">
+</p>
+<?php
+}
+
+// Sauvegarder les meta données
+add_action('save_post_job_posting', 'save_job_posting_meta', 10, 2);
+
+function save_job_posting_meta($post_id, $post) {
+// Vérifications de sécurité
+if (!isset($_POST['job_meta_nonce_field']) ||
+!wp_verify_nonce($_POST['job_meta_nonce_field'],
+'job_meta_nonce')) {
+return;
+}
+
+if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
+if (!current_user_can('edit_post', $post_id)) return;
+45
+
+// Liste des champs à sauvegarder
+$fields = array(
+'meta_keywords', 'department', 'contract_type', 'company',
+'category', 'job_type', 'salary_range', 'tjm', 'languages',
+'location', 'number_of_positions', 'job_description',
+'skills', 'project_constraints', 'start_publishing',
+'end_publishing'
+);
+
+foreach ($fields as $field) {
+if (isset($_POST[$field])) {
+update_post_meta($post_id, $field,
+sanitize_textarea_field($_POST[$field]));
+}
+}
+}
+Pourquoi tous ces champs: Ils fourniront un contexte riche à l'IA pour un matching précis. Plus le
+profil de poste est détaillé, meilleur sera le scoring.
+
+Phase 2: Créer les Endpoints REST API
+Quoi faire: Créer 3 endpoints pour la communication WordPress ↔ n8n
+Où: Dans le même fichier plugin
+Comment:
+php
+// Enregistrer les endpoints REST
+add_action('rest_api_init', 'register_cv_matching_endpoints');
+46
+
+function register_cv_matching_endpoints() {
+// Endpoint 1: Récupérer tous les CV
+register_rest_route('cv-matching/v1', '/get-all-cvs', array(
+'methods' => 'GET',
+'callback' => 'get_all_cvs_callback',
+'permission_callback' => 'verify_n8n_api_key',
+));
+
+// Endpoint 2: Récupérer une fiche de poste complète
+register_rest_route('cv-matching/v1', '/get-job/(?P<id>\d+)', array(
+'methods' => 'GET',
+'callback' => 'get_job_posting_callback',
+'permission_callback' => 'verify_n8n_api_key',
+));
+
+// Endpoint 3: Stocker les résultats de matching
+register_rest_route('cv-matching/v1', '/store-results', array(
+'methods' => 'POST',
+'callback' => 'store_matching_results_callback',
+'permission_callback' => 'verify_n8n_api_key',
+));
+
+// Endpoint 4: Récupérer les résultats pour affichage front-end
+register_rest_route('cv-matching/v1', '/get-results/(?P<job_id>\d+)',
+array(
+'methods' => 'GET',
+'callback' => 'get_matching_results_callback',
+'permission_callback' => '__return_true', // Public
+));
+}
+47
+
+// Fonction de vérification API Key
+function verify_n8n_api_key($request) {
+$api_key = $request->get_header('X-API-Key');
+$stored_key = get_option('n8n_api_key');
+
+// Si pas de clé configurée, en générer une
+if (empty($stored_key)) {
+$stored_key = wp_generate_password(40, true, true);
+update_option('n8n_api_key', $stored_key);
+error_log("N8N API Key générée: " . $stored_key);
+}
+
+return hash_equals($stored_key, $api_key);
+}
+// Callback 1: Récupérer tous les CV
+function get_all_cvs_callback($request) {
+global $wpdb;
+$table = $wpdb->prefix . 'cv_database';
+$cvs = $wpdb->get_results("
+SELECT id, first_name, last_name, email, cv_text_content,
+skills, experience_years, languages
+FROM $table
+ORDER BY id ASC
+", ARRAY_A);
+
+return new WP_REST_Response(array(
+'success' => true,
+'count' => count($cvs),
+'cvs' => $cvs
+), 200);
+48
+
+}
+// Callback 2: Récupérer une fiche de poste complète
+function get_job_posting_callback($request) {
+$job_id = $request['id'];
+$post = get_post($job_id);
+if (!$post || $post->post_type !== 'job_posting') {
+return new WP_REST_Response(array(
+'success' => false,
+'message' => 'Fiche de poste introuvable'
+), 404);
+}
+// Récupérer tous les champs
+$job_data = array(
+'id' => $job_id,
+'title' => $post->post_title,
+'meta_keywords' => get_post_meta($job_id, 'meta_keywords', true),
+'department' => get_post_meta($job_id, 'department', true),
+'contract_type' => get_post_meta($job_id, 'contract_type', true),
+'company' => get_post_meta($job_id, 'company', true),
+'category' => get_post_meta($job_id, 'category', true),
+'job_type' => get_post_meta($job_id, 'job_type', true),
+'salary_range' => get_post_meta($job_id, 'salary_range', true),
+'tjm' => get_post_meta($job_id, 'tjm', true),
+'languages' => get_post_meta($job_id, 'languages', true),
+'location' => get_post_meta($job_id, 'location', true),
+'number_of_positions' => get_post_meta($job_id,
+'number_of_positions', true),
+'job_description' => get_post_meta($job_id, 'job_description',
+true),
+'skills' => get_post_meta($job_id, 'skills', true),
+49
+
+'project_constraints' => get_post_meta($job_id,
+'project_constraints', true),
+);
+
+return new WP_REST_Response(array(
+'success' => true,
+'job' => $job_data
+), 200);
+}
+// Callback 3: Stocker les résultats
+function store_matching_results_callback($request) {
+global $wpdb;
+$table = $wpdb->prefix . 'cv_matching_results';
+$params = $request->get_json_params();
+
+if (!isset($params['job_post_id']) || !isset($params['results'])) {
+return new WP_REST_Response(array(
+'success' => false,
+'message' => 'Paramètres manquants'
+), 400);
+}
+$job_post_id = intval($params['job_post_id']);
+// Supprimer les anciens résultats
+$wpdb->delete($table, array('job_post_id' => $job_post_id));
+// Insérer les nouveaux résultats
+$inserted = 0;
+foreach ($params['results'] as $result) {
+$inserted += $wpdb->insert($table, array(
+'job_post_id' => $job_post_id,
+'cv_id' => intval($result['cv_id']),
+50
+
+'score_percentage' => intval($result['score']),
+'strengths' => json_encode($result['strengths'],
+JSON_UNESCAPED_UNICODE),
+'weaknesses' => json_encode($result['weaknesses'],
+JSON_UNESCAPED_UNICODE),
+'keywords_found' => json_encode($result['keywords'],
+JSON_UNESCAPED_UNICODE),
+'matching_details' => isset($result['details']) ?
+json_encode($result['details'], JSON_UNESCAPED_UNICODE) : null,
+));
+}
+// Mettre à jour le statut de la fiche de poste
+update_post_meta($job_post_id, 'matching_status', 'completed');
+update_post_meta($job_post_id, 'matching_completed_at',
+current_time('mysql'));
+update_post_meta($job_post_id, 'total_cvs_analyzed',
+count($params['results']));
+
+return new WP_REST_Response(array(
+'success' => true,
+'inserted' => $inserted,
+'message' => "$inserted résultats stockés avec succès"
+), 200);
+}
+// Callback 4: Récupérer les résultats pour affichage
+function get_matching_results_callback($request) {
+global $wpdb;
+$job_id = intval($request['job_id']);
+$table_results = $wpdb->prefix . 'cv_matching_results';
+$table_cv = $wpdb->prefix . 'cv_database';
+$results = $wpdb->get_results($wpdb->prepare("
+51
+
+SELECT
+r.id,
+r.score_percentage,
+r.strengths,
+r.weaknesses,
+r.keywords_found,
+r.matching_details,
+r.analyzed_at,
+c.first_name,
+c.last_name,
+c.email,
+c.cv_file_url,
+c.experience_years
+FROM $table_results r
+INNER JOIN $table_cv c ON r.cv_id = c.id
+WHERE r.job_post_id = %d
+ORDER BY r.score_percentage DESC
+", $job_id), ARRAY_A);
+return new WP_REST_Response(array(
+'success' => true,
+'count' => count($results),
+'results' => $results
+), 200);
+}
+Pourquoi 4 endpoints: Séparation des responsabilités pour plus de flexibilité et de sécurité. Les
+endpoints 1-3 nécessitent authentification, le 4 est public pour l'affichage front-end.
+
+Phase 3: Configuration du Workflow n8n
+Quoi faire: Créer le workflow complet de matching IA dans n8n​
+52
+
+Où: Interface n8n (
+https://n8n.votre-domaine.com
+)
+Comment créer le workflow étape par étape:
+
+3.1: Créer un nouveau workflow
+1.​ Connectez-vous à n8n
+2.​ Cliquez sur Workflows → Add workflow
+3.​ Nommez-le: CV Matching IA - WordPress
+
+3.2: Node 1 - Webhook Trigger
+Quoi: Point d'entrée qui reçoit la notification de WordPress​
+Configuration:
+●​ Node type: Webhook
+●​ HTTP Method: POST
+●​ Path: cv-matching-trigger
+●​ Response Mode: Immediately
+●​ Authentication: None (authentification sera dans WordPress)
+Données reçues: { "job_post_id": 123 }
+Pourquoi: Le webhook permet à WordPress de déclencher le workflow instantanément lors de la
+création d'une fiche de poste.​
+
+3.3: Node 2 - HTTP Request: Récupérer la Fiche de Poste
+Configuration:
+●​ Node type: HTTP Request
+●​ Method: GET
+●​ URL:
+https://votre-site-wordpress.com/wp-json/cv-matching/v1/get-job/{{
+$json.body.job_post_id }}
+●​ Authentication: Generic Credential Type → Header Auth
+●​ Name: X-API-Key
+53
+
+●​ Value: VOTRE_CLE_API_WORDPRESS (copiée depuis WordPress)
+Pourquoi: Récupère tous les détails de la fiche de poste pour l'analyse IA.
+
+3.4: Node 3 - HTTP Request: Récupérer tous les CV
+Configuration:
+●​ Node type: HTTP Request
+●​ Method: GET
+●​ URL:
+https://votre-site-wordpress.com/wp-json/cv-matching/v1/get-all-cvs
+●​ Authentication: Header Auth (même que Node 2)
+Output: Array de tous les CV à analyser
+
+3.5: Node 4 - Split In Batches
+Configuration:
+●​ Node type: Split In Batches
+●​ Batch Size: 5
+●​ Input: Connecter depuis Node 3 (liste des CV)
+Pourquoi: Traite 5 CV à la fois pour éviter les timeouts et respecter les limites de rate limiting
+d'OpenAI.​
+
+3.6: Node 5 - Code: Préparer le Prompt IA
+Configuration:
+●​ Node type: Code
+●​ Mode: Run Once for Each Item
+Code JavaScript:
+javascript
+const cv = $input.item.json;
+const jobData = $('HTTP Request1').first().json.job;
+
+// Construction du prompt détaillé pour GPT
+54
+
+const prompt = `Tu es un expert en recrutement spécialisé dans l'analyse
+de CV.
+Analyse ce CV par rapport à cette offre d'emploi et fournis un scoring
+précis.
+
+===== OFFRE D'EMPLOI =====
+Titre: ${jobData.title}
+Entreprise: ${jobData.company}
+Type de contrat: ${jobData.contract_type}
+Catégorie: ${jobData.category}
+Type: ${jobData.job_type}
+Localisation: ${jobData.location}
+TJM: ${jobData.tjm}
+Langues requises: ${jobData.languages}
+Département: ${jobData.department}
+
+Description complète:
+${jobData.job_description}
+
+Compétences requises:
+${jobData.skills}
+
+Contraintes fortes du projet:
+${jobData.project_constraints}
+
+Mots-clés importants:
+${jobData.meta_keywords}
+
+===== CV DU CANDIDAT =====
+55
+
+Nom: ${cv.first_name} ${cv.last_name}
+Email: ${cv.email}
+Expérience: ${cv.experience_years} ans
+Langues: ${cv.languages}
+
+Contenu du CV:
+${cv.cv_text_content}
+
+Compétences déclarées:
+${cv.skills}
+
+===== CONSIGNES D'ANALYSE =====
+1. Score global de 0 à 100 basé sur:
+- Adéquation des compétences techniques (40%)
+- Expérience pertinente (30%)
+- Langues et localisation (15%)
+- Respect des contraintes fortes (15%)
+
+2. Identifie 3-5 points forts concrets du candidat pour ce poste
+
+3. Identifie 2-4 points faibles ou manques par rapport aux exigences
+
+4. Extrais les mots-clés du CV qui correspondent aux compétences
+recherchées
+
+5. Fournis une explication courte (2-3 phrases) du score
+
+Réponds UNIQUEMENT avec ce format JSON valide (sans markdown, sans texte
+supplémentaire):
+{
+56
+
+"score": 85,
+"strengths": ["Point fort 1", "Point fort 2", "Point fort 3"],
+"weaknesses": ["Point faible 1", "Point faible 2"],
+"keywords": ["JavaScript", "React", "Node.js"],
+"explanation": "Explication courte du scoring"
+}`;
+
+return {
+json: {
+cv_id: cv.id,
+cv_name: `${cv.first_name} ${cv.last_name}`,
+prompt: prompt
+}
+};
+Pourquoi ce prompt détaillé: Fournir tous les champs à l'IA améliore drastiquement la qualité du
+matching. Les pourcentages guident l'IA sur les priorités.
+
+3.7: Node 6 - OpenAI: Analyse avec GPT-4
+Configuration:
+●​ Node type: OpenAI
+●​ Resource: Chat
+●​ Model: gpt-4o (ou gpt-4o-mini pour réduire les coûts)
+●​ Credential: Sélectionner OpenAI - CV Matching (créée en étape 0.5)
+●​ Messages:
+●​ Role: System
+●​ Content: Tu es un expert en recrutement. Analyse les CV de
+manière objective et fournis des scores précis au format
+JSON.
+●​ Role: User
+●​ Content: {{ $json.prompt }}
+●​ Temperature: 0.3 (plus déterministe)
+●​ Max Tokens: 1000
+57
+
+●​ Response Format: JSON
+Pourquoi GPT-4: GPT-4 comprend mieux les nuances contextuelles que GPT-3.5. GPT-4o-mini offre
+un bon compromis coût/qualité.​
+
+3.8: Node 7 - Code: Parser et Formater la Réponse
+Configuration:
+●​ Node type: Code
+Code:
+javascript
+const cvId = $json.cv_id;
+const cvName = $json.cv_name;
+
+// Parser la réponse OpenAI
+let aiResponse;
+try {
+const content = $('OpenAI').first().json.choices[0].message.content;
+// Nettoyer les éventuels backticks markdown
+const cleanContent = content.replace(/``````\n?/g, '').trim();
+aiResponse = JSON.parse(cleanContent);
+} catch (error) {
+console.error('Erreur parsing JSON:', error);
+// Valeurs par défaut en cas d'erreur
+aiResponse = {
+score: 0,
+strengths: ["Erreur d'analyse"],
+weaknesses: ["Impossible d'analyser ce CV"],
+keywords: [],
+explanation: "Une erreur s'est produite lors de l'analyse"
+58
+
+};
+}
+
+return {
+json: {
+cv_id: cvId,
+cv_name: cvName,
+score: Math.min(100, Math.max(0, aiResponse.score)), // Limiter entre
+0-100
+strengths: aiResponse.strengths || [],
+weaknesses: aiResponse.weaknesses || [],
+keywords: aiResponse.keywords || [],
+details: {
+explanation: aiResponse.explanation || '',
+analyzed_at: new Date().toISOString()
+}
+}
+};
+
+Pourquoi le nettoyage: GPT renvoie parfois du JSON enrobé dans des balises markdown. Le
+nettoyage assure une compatibilité maximale.
+
+3.9: Node 8 - Loop Over Items (retour au Node 4)
+Configuration:
+●​ Connecter la sortie du Node 7 vers l'entrée Loop du Node 4 (Split In Batches)
+●​ Cela continue le traitement jusqu'à ce que tous les CV soient analysés
+Pourquoi: Le loop automatique traite les CV batch par batch sans intervention manuelle.
+
+3.10: Node 9 - Aggregate: Rassembler tous les Résultats
+59
+
+Configuration:
+●​ Node type: Aggregate
+●​ Mode: Aggregate All Data
+●​ Field to Aggregate: Laisser vide (prend tout)
+Pourquoi: Collecte tous les résultats individuels dans un seul array pour l'envoi groupé à WordPress.
+
+3.11: Node 10 - Code: Formater pour WordPress
+Configuration:
+●​ Node type: Code
+Code:
+javascript
+const allResults = $input.all();
+const jobPostId = $('Webhook').first().json.body.job_post_id;
+
+// Transformer en format attendu par WordPress
+const formattedResults = allResults.map(item => ({
+cv_id: item.json.cv_id,
+score: item.json.score,
+strengths: item.json.strengths,
+weaknesses: item.json.weaknesses,
+keywords: item.json.keywords,
+details: item.json.details
+}));
+
+// Trier par score décroissant
+formattedResults.sort((a, b) => b.score - a.score);
+
+return {
+60
+
+json: {
+job_post_id: jobPostId,
+results: formattedResults,
+total_analyzed: formattedResults.length,
+timestamp: new Date().toISOString()
+}
+};
+
+3.12: Node 11 - HTTP Request: Stocker les Résultats dans
+WordPress
+Configuration:
+●​ Node type: HTTP Request
+●​ Method: POST
+●​ URL:
+https://votre-site-wordpress.com/wp-json/cv-matching/v1/store-result
+s
+●​ Authentication: Header Auth (même clé API)
+●​ Send Body: Yes
+●​ Body Content Type: JSON
+●​ Specify Body: Using JSON
+●​ JSON: {{ $json }}
+Pourquoi l'envoi groupé: Un seul appel HTTP est plus rapide et fiable que des centaines d'appels
+individuels.
+
+3.13: Sauvegarder et Activer le Workflow
+1.​ Cliquer sur Save en haut à droite
+2.​ Activer le workflow avec le toggle Active
+3.​ Copier l'URL du webhook affichée dans le Node 1
+L'URL webhook ressemblera à:
+https://n8n.votre-domaine.com/webhook/cv-matching-trigger
+Pourquoi activer: Un workflow inactif ne répond pas aux webhooks.​
+61
+
+Phase 4: Connecter WordPress à n8n
+Quoi faire: Déclencher automatiquement n8n quand une fiche de poste est publiée
+Où: Dans votre plugin WordPress
+Comment:
+php
+// Hook de déclenchement n8n
+add_action('publish_job_posting', 'trigger_n8n_cv_matching', 10, 2);
+
+function trigger_n8n_cv_matching($post_id, $post) {
+// Éviter les doublons et auto-save
+if (wp_is_post_revision($post_id) || wp_is_post_autosave($post_id)) {
+return;
+}
+
+// Ne déclencher que pour les nouvelles publications
+if (get_post_meta($post_id, '_n8n_triggered', true)) {
+return;
+}
+
+// Marquer comme "en cours d'analyse"
+update_post_meta($post_id, 'matching_status', 'processing');
+update_post_meta($post_id, '_n8n_triggered', true);
+
+// URL du webhook n8n (à configurer dans les options)
+$n8n_webhook_url = get_option('n8n_webhook_url', '');
+
+if (empty($n8n_webhook_url)) {
+62
+
+error_log('N8N Webhook URL non configurée');
+return;
+}
+
+// Préparer les données
+$payload = array(
+'job_post_id' => $post_id,
+'triggered_at' => current_time('mysql'),
+'triggered_by' => get_current_user_id(),
+);
+// Appel asynchrone à n8n
+$response = wp_remote_post($n8n_webhook_url, array(
+'body' => json_encode($payload),
+'headers' => array(
+'Content-Type' => 'application/json',
+),
+'timeout' => 10,
+'blocking' => false, // Non-bloquant
+'sslverify' => true,
+));
+// Logger pour debug
+if (is_wp_error($response)) {
+error_log('Erreur déclenchement n8n: ' .
+$response->get_error_message());
+update_post_meta($post_id, 'matching_status', 'error');
+} else {
+error_log("N8N déclenché avec succès pour job_post_id:
+$post_id");
+}
+}
+63
+
+// Ajouter une page de configuration dans l'admin
+add_action('admin_menu', 'cv_matching_add_admin_menu');
+
+function cv_matching_add_admin_menu() {
+add_options_page(
+'Configuration CV Matching IA',
+'CV Matching IA',
+'manage_options',
+'cv-matching-config',
+'cv_matching_render_config_page'
+);
+}
+function cv_matching_render_config_page() {
+// Sauvegarder les paramètres
+if (isset($_POST['cv_matching_save'])) {
+check_admin_referer('cv_matching_config_nonce');
+update_option('n8n_webhook_url',
+sanitize_url($_POST['n8n_webhook_url']));
+update_option('n8n_api_key',
+sanitize_text_field($_POST['n8n_api_key']));
+echo '<div class="notice notice-success"><p>Configuration
+sauvegardée !</p></div>';
+}
+$webhook_url = get_option('n8n_webhook_url', '');
+$api_key = get_option('n8n_api_key', '');
+// Générer une clé si elle n'existe pas
+if (empty($api_key)) {
+$api_key = wp_generate_password(40, true, true);
+update_option('n8n_api_key', $api_key);
+}
+64
+
+?>
+<div class="wrap">
+<h1>Configuration CV Matching IA</h1>
+
+<form method="post">
+<?php wp_nonce_field('cv_matching_config_nonce'); ?>
+
+<table class="form-table">
+<tr>
+<th><label for="n8n_webhook_url">URL Webhook
+n8n</label></th>
+<td>
+<input type="url" id="n8n_webhook_url"
+name="n8n_webhook_url"
+value="<?php echo esc_url($webhook_url);
+?>"
+class="regular-text" required>
+<p class="description">
+Copier l'URL du webhook depuis votre workflow n8n<br>​
+Format: https://n8n.votre-domaine.com/webhook/cv-matching-trigger
+</p>
+</td>
+</tr>
+<tr>
+<th><label for="n8n_api_key">Clé API
+WordPress</label></th>
+<td>
+<input type="text" id="n8n_api_key"
+name="n8n_api_key"
+value="<?php echo esc_attr($api_key); ?>"
+class="regular-text" readonly>
+65
+
+<p class="description">
+<strong>Copiez cette clé dans n8n</strong>
+pour authentifier les requêtes HTTP vers WordPress<br>
+Cette clé sera utilisée dans le header
+<code>X-API-Key</code>
+</p>
+</td>
+</tr>
+</table>
+<p class="submit">
+<input type="submit" name="cv_matching_save"
+class="button button-primary" value="Sauvegarder">
+</p>
+</form>
+<hr>
+
+<h2>Test de Connexion</h2>
+<p>
+<button type="button" id="test-n8n-connection"
+class="button">
+Tester la connexion n8n
+</button>
+<span id="test-result"></span>
+</p>
+<script>
+jQuery(document).ready(function($) {
+$('#test-n8n-connection').on('click', function() {
+var btn = $(this);
+btn.prop('disabled', true).text('Test en cours...');
+
+66
+
+$.post('<?php echo admin_url('admin-ajax.php'); ?>', {
+action: 'test_n8n_connection'
+}, function(response) {
+var result = $('#test-result');
+if (response.success) {
+result.html('<span style="color: green;">✓
+Connexion réussie!</span>');
+} else {
+result.html('<span style="color: red;">✗ Erreur:
+' + response.data + '</span>');
+}
+btn.prop('disabled', false).text('Tester la connexion
+n8n');
+});
+});
+});
+</script>
+</div>
+<?php
+}
+// AJAX pour tester la connexion
+add_action('wp_ajax_test_n8n_connection', 'test_n8n_connection_ajax');
+function test_n8n_connection_ajax() {
+$webhook_url = get_option('n8n_webhook_url', '');
+if (empty($webhook_url)) {
+wp_send_json_error('URL webhook non configurée');
+return;
+}
+$response = wp_remote_post($webhook_url, array(
+'body' => json_encode(array('test' => true, 'job_post_id' => 0)),
+67
+
+'headers' => array('Content-Type' => 'application/json'),
+'timeout' => 5,
+));
+if (is_wp_error($response)) {
+wp_send_json_error($response->get_error_message());
+} else {
+wp_send_json_success('Webhook accessible');
+}
+}
+
+Configuration dans WordPress Admin:
+1.​ Aller dans Réglages → CV Matching IA
+2.​ Coller l'URL webhook de n8n
+3.​ Copier la clé API affichée
+4.​ Cliquer "Sauvegarder"
+Configuration dans n8n:
+1.​ Dans chaque node HTTP Request vers WordPress
+2.​ Ajouter Authentication → Header Auth
+3.​ Name: X-API-Key
+4.​ Value: Coller la clé API copiée depuis WordPress
+Pourquoi cette architecture: La séparation des clés (webhook URL pour WordPress→n8n, API key
+pour n8n→WordPress) renforce la sécurité.​
+
+Phase 5: Interface Front-End - Affichage des Résultats
+Quoi faire: Créer l'interface d'affichage des candidats matchés avec cards
+Où: Créer un template single-job_posting.php dans votre thème
+Comment:
+php
+68
+
+<?php
+/**
+* Template Name: Single Job Posting avec Matching IA
+*/
+get_header();
+while (have_posts()) : the_post();
+$job_id = get_the_ID();
+$matching_status = get_post_meta($job_id, 'matching_status', true);
+$total_cvs = get_post_meta($job_id, 'total_cvs_analyzed', true);
+$completed_at = get_post_meta($job_id, 'matching_completed_at',
+true);
+// Récupérer les informations de la fiche
+$company = get_post_meta($job_id, 'company', true);
+$location = get_post_meta($job_id, 'location', true);
+$contract_type = get_post_meta($job_id, 'contract_type', true);
+$category = get_post_meta($job_id, 'category', true);
+?>
+<div class="job-posting-single">
+<div class="job-header">
+<h1><?php the_title(); ?></h1>
+<div class="job-meta">
+<span class="company"><strong><?php echo
+esc_html($company); ?></strong></span>
+
+📍 <?php echo esc_html($location);
+
+<span class="location">
+?></span>
+
+<span class="contract"><?php echo
+esc_html($contract_type); ?></span>
+<span class="category"><?php echo esc_html($category);
+?></span>
+</div>
+</div>
+69
+
+<div class="job-content">
+<div class="job-details">
+<h2>Description du poste</h2>
+<p><?php echo nl2br(esc_html(get_post_meta($job_id,
+'job_description', true))); ?></p>
+<h3>Compétences requises</h3>
+<p><?php echo nl2br(esc_html(get_post_meta($job_id,
+'skills', true))); ?></p>
+<?php if ($constraints = get_post_meta($job_id,
+'project_constraints', true)): ?>
+<h3>Contraintes du projet</h3>
+<p><?php echo nl2br(esc_html($constraints)); ?></p>
+<?php endif; ?>
+</div>
+<div class="matching-section">
+<div class="matching-header">
+<h2>Matching IA des Candidats</h2>
+<?php if ($matching_status === 'processing'): ?>
+<div class="status-badge processing">
+Analyse en cours...
+<p class="status-description">Nos algorithmes
+analysent les CV. Cela peut prendre quelques minutes.</p>
+</div>
+<?php elseif ($matching_status === 'completed'): ?>
+<div class="status-badge completed">
+Analyse terminée
+<p class="status-description">
+<?php echo esc_html($total_cvs); ?> CV
+analysés le
+<?php echo date_i18n('d/m/Y à H:i',
+strtotime($completed_at)); ?>
+70
+
+</p>
+</div>
+<?php else: ?>
+<div class="status-badge pending">
+Analyse non démarrée
+</div>
+<?php endif; ?>
+</div>
+<?php if ($matching_status === 'completed'): ?>
+<button id="load-matching-results" class="button
+button-primary button-large">
+Voir les Candidats Matchés
+</button>
+<?php endif; ?>
+
+<div id="matching-results-container"></div>
+</div>
+</div>
+</div>
+
+<script>
+jQuery(document).ready(function($) {
+$('#load-matching-results').on('click', function() {
+var btn = $(this);
+btn.text('Chargement...').prop('disabled', true);
+$.ajax({
+url: '<?php echo rest_url('cv-matching/v1/get-results/' .
+$job_id); ?>',
+method: 'GET',
+dataType: 'json',
+71
+
+success: function(response) {
+if (!response.success || response.count === 0) {
+$('#matching-results-container').html(
+'<div class="no-results">Aucun résultat
+disponible.</div>'
+);
+btn.hide();
+return;
+}
+renderCandidateCards(response.results);
+btn.hide();
+},
+error: function(xhr, status, error) {
+console.error('Erreur:', error);
+$('#matching-results-container').html(
+'<div class="error-message">Erreur lors du
+chargement. Veuillez réessayer.</div>'
+);
+btn.text('Réessayer').prop('disabled', false);
+}
+});
+});
+function renderCandidateCards(results) {
+var container = $('#matching-results-container');
+var html = '<div class="candidates-stats">';
+html += '<p><strong>' + results.length + ' candidats
+analysés</strong></p>';
+html += '</div>';
+html += '<div class="cv-cards-grid">';
+results.forEach(function(result) {
+72
+
+var strengths = JSON.parse(result.strengths);
+var weaknesses = JSON.parse(result.weaknesses);
+var keywords = JSON.parse(result.keywords_found);
+var scoreClass = getScoreClass(result.score_percentage);
+html += '<div class="cv-card" data-score="' +
+result.score_percentage + '">';
+// Header
+html += '<div class="cv-card-header">';
+html += '<div class="candidate-info">';
+html += '<h3>' + escapeHtml(result.first_name + ' ' +
+result.last_name) + '</h3>';
+if (result.experience_years) {
+html += '<span class="experience">' +
+result.experience_years + ' ans d\'expérience</span>';
+}
+html += '</div>';
+html += '<div class="score-badge score-' + scoreClass +
+'">';
+html += '<span class="score-number">' +
+result.score_percentage + '</span>';
+html += '<span class="score-label">%</span>';
+html += '</div>';
+html += '</div>';
+// Body
+html += '<div class="cv-card-body">';
+// Mots-clés
+if (keywords.length > 0) {
+html += '<div class="keywords-section">';
+html += '<strong>Mots-clés trouvés:</strong>';
+html += '<div class="keywords-tags">';
+keywords.forEach(function(keyword) {
+73
+
+html += '<span class="keyword-tag">' +
+escapeHtml(keyword) + '</span>';
+});
+html += '</div></div>';
+}
+// Points forts
+if (strengths.length > 0) {
+html += '<div class="strengths-section">';
+html += '<strong>Points forts:</strong>';
+html += '<ul class="strengths-list">';
+strengths.slice(0, 4).forEach(function(strength) {
+html += '<li>' + escapeHtml(strength) + '</li>';
+});
+html += '</ul></div>';
+}
+// Points faibles (affichés uniquement pour scores > 50)
+if (weaknesses.length > 0 && result.score_percentage >
+50) {
+html += '<div class="weaknesses-section">';
+html += '<strong>Points d\'amélioration:</strong>';
+html += '<ul class="weaknesses-list">';
+weaknesses.slice(0, 3).forEach(function(weakness) {
+html += '<li>' + escapeHtml(weakness) + '</li>';
+});
+html += '</ul></div>';
+}
+html += '</div>';
+// Footer
+html += '<div class="cv-card-footer">';
+
+74
+
+html += '<a href="' + escapeHtml(result.cv_file_url) + '"
+target="_blank" class="button view-cv-btn">';
+html += 'Voir le CV complet';
+html += '</a>';
+if (result.email) {
+html += '<a href="mailto:' + escapeHtml(result.email)
++ '" class="button contact-btn">';
+html += 'Contacter';
+html += '</a>';
+}
+html += '</div>';
+html += '</div>'; // End cv-card
+});
+html += '</div>'; // End grid
+container.html(html);
+}
+function getScoreClass(score) {
+if (score >= 85) return 'excellent';
+if (score >= 70) return 'very-good';
+if (score >= 55) return 'good';
+if (score >= 40) return 'average';
+return 'low';
+}
+function escapeHtml(text) {
+var map = {
+'&': '&amp;',
+'<': '&lt;',
+'>': '&gt;',
+'"': '&quot;',
+"'": '&#039;'
+75
+
+};
+return String(text).replace(/[&<>"']/g, function(m) { return
+map[m]; });
+}
+});
+</script>
+<?php
+endwhile;
+get_footer();
+?>
+CSS (à ajouter dans style.css du thème ou enqueue séparément):
+css
+/* Job Posting Single */
+.job-posting-single {
+max-width: 1200px;
+margin: 40px auto;
+padding: 0 20px;
+}
+.job-header {
+background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+color: white;
+padding: 40px;
+border-radius: 12px;
+margin-bottom: 30px;
+}
+.job-header h1 {
+margin: 0 0 15px 0;
+font-size: 2.5em;
+}
+76
+
+.job-meta {
+display: flex;
+gap: 20px;
+flex-wrap: wrap;
+}
+.job-meta span {
+background: rgba(255,255,255,0.2);
+padding: 8px 16px;
+border-radius: 20px;
+font-size: 14px;
+}
+/* Matching Section */
+.matching-section {
+background: #f8f9fa;
+padding: 30px;
+border-radius: 12px;
+margin-top: 40px;
+}
+.matching-header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 25px;
+flex-wrap: wrap;
+gap: 20px;
+}
+.status-badge {
+padding: 15px 25px;
+border-radius: 8px;
+font-weight: 600;
+77
+
+}
+.status-badge.processing {
+background: #fff3cd;
+color: #856404;
+border-left: 4px solid #ffc107;
+}
+.status-badge.completed {
+background: #d4edda;
+color: #155724;
+border-left: 4px solid #28a745;
+}
+.status-badge.pending {
+background: #e2e3e5;
+color: #383d41;
+}
+.status-description {
+margin: 5px 0 0 0;
+font-size: 13px;
+font-weight: normal;
+}
+/* CV Cards Grid */
+.cv-cards-grid {
+display: grid;
+grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+gap: 25px;
+margin-top: 30px;
+}
+.cv-card {
+background: white;
+border-radius: 12px;
+78
+
+padding: 25px;
+box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+transition: all 0.3s ease;
+border: 2px solid transparent;
+}
+.cv-card:hover {
+transform: translateY(-5px);
+box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+border-color: #667eea;
+}
+/* Card Header */
+.cv-card-header {
+display: flex;
+justify-content: space-between;
+align-items: flex-start;
+margin-bottom: 20px;
+padding-bottom: 15px;
+border-bottom: 2px solid #f0f0f0;
+}
+.candidate-info h3 {
+margin: 0 0 5px 0;
+font-size: 1.4em;
+color: #2c3e50;
+}
+
+.experience {
+color: #6c757d;
+font-size: 13px;
+}
+.score-badge {
+79
+
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: center;
+width: 70px;
+height: 70px;
+border-radius: 50%;
+font-weight: bold;
+}
+.score-number {
+font-size: 26px;
+line-height: 1;
+}
+.score-label {
+font-size: 14px;
+}
+.score-excellent { background: #28a745; color: white; }
+.score-very-good { background: #17a2b8; color: white; }
+.score-good { background: #007bff; color: white; }
+.score-average { background: #ffc107; color: #333; }
+.score-low { background: #dc3545; color: white; }
+/* Card Body */
+.cv-card-body {
+margin-bottom: 20px;
+}
+.cv-card-body > div {
+margin-bottom: 15px;
+}
+.cv-card-body strong {
+display: block;
+80
+
+margin-bottom: 8px;
+color: #495057;
+font-size: 14px;
+}
+/* Keywords */
+.keywords-tags {
+display: flex;
+flex-wrap: wrap;
+gap: 8px;
+}
+.keyword-tag {
+background: #e7f3ff;
+color: #0066cc;
+padding: 6px 12px;
+border-radius: 15px;
+font-size: 13px;
+font-weight: 500;
+}
+/* Strengths & Weaknesses */
+.strengths-list,
+.weaknesses-list {
+margin: 0;
+padding-left: 20px;
+}
+.strengths-list li {
+color: #155724;
+margin-bottom: 5px;
+font-size: 14px;
+}
+.weaknesses-list li {
+81
+
+color: #856404;
+margin-bottom: 5px;
+font-size: 13px;
+}
+/* Card Footer */
+.cv-card-footer {
+display: flex;
+gap: 10px;
+}
+.cv-card-footer .button {
+flex: 1;
+text-align: center;
+padding: 12px 20px;
+border-radius: 8px;
+text-decoration: none;
+font-weight: 600;
+transition: all 0.2s;
+}
+.view-cv-btn {
+background: #667eea;
+color: white;
+}
+.view-cv-btn:hover {
+background: #5568d3;
+}
+.contact-btn {
+background: #28a745;
+color: white;
+}
+.contact-btn:hover {
+82
+
+background: #218838;
+}
+/* Responsive */
+@media (max-width: 768px) {
+.cv-cards-grid {
+grid-template-columns: 1fr;
+}
+.job-header h1 {
+font-size: 1.8em;
+}
+.matching-header {
+flex-direction: column;
+align-items: flex-start;
+}
+}
+Pourquoi cette interface: Les cards visuelles avec codes couleurs permettent d'identifier rapidement
+les meilleurs candidats. L'affichage progressif (clic sur bouton) évite de surcharger la page initiale.
+
+Phase 6: Tests et Maintenance
+Tests de bout en bout
+Quoi tester:
+1.​ Créer une fiche de poste de test
+2.​ Vérifier que n8n reçoit le webhook (logs dans n8n)
+3.​ Vérifier l'analyse des CV (chaque node dans n8n)
+4.​ Vérifier le stockage des résultats dans WordPress
+5.​ Vérifier l'affichage front-end
+Où voir les logs n8n:
+●​ Interface n8n → Executions (menu gauche)
+83
+
+●​ Cliquer sur chaque exécution pour voir le détail
+●​ Vérifier que chaque node a bien fonctionné
+
+Maintenance:
+●​ Sauvegarder régulièrement la base PostgreSQL de n8n​
+●​ Mettre à jour n8n: docker-compose pull && docker-compose up -d​
+●​ Monitorer l'utilisation OpenAI (coûts API)
+●​ Nettoyer les anciennes exécutions n8n (configuré dans variables d'environnement)
+Pourquoi: Un système de production nécessite une surveillance continue pour identifier rapidement
+les problèmes.
+
+Cette architecture complète nous donne un système de matching IA professionnel, scalable et
+maintenable entre WordPress et n8n.​
+
+84
+
+
