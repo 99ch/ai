@@ -1,0 +1,255 @@
+{
+  "name": "Keoni Matching Pipeline",
+  "active": false,
+  "versionId": "b5a7c1c8-1b2d-4e0f-9453-1a7dfcc2e9aa",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "keoni/new-job",
+        "options": {
+          "responseContent": "{\"status\":\"received\"}"
+        }
+      },
+      "id": "Webhook",
+      "name": "Webhook New Job",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [200, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "GET",
+        "url": "http://wordpress/wp-json/keoni/v1/job/{{$json[\"job_post_id\"]}}",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "headerParametersJson": "{\"X-API-Key\":\"{{$env(\"WP_API_KEY\")}}\"}"
+      },
+      "id": "GetJob",
+      "name": "Get Job",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 8,
+      "position": [440, 160]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{ json: { batches: Math.ceil(items[0].json.total_cvs / 100) || 1 } }];"
+      },
+      "id": "PrepareLoop",
+      "name": "Prepare Batches",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const batches = items[0].json.batches;\nconst outputs = [];\nfor (let i = 0; i < batches; i++) {\n  outputs.push({ json: { offset: i * 100, limit: 100 } });\n}\nreturn outputs;"
+      },
+      "id": "CreateBatchItems",
+      "name": "Create Batch Items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "GET",
+        "url": "http://wordpress/wp-json/keoni/v1/cvs",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "queryParametersJson": "{\"offset\":{{$json.offset}},\"limit\":{{$json.limit}}}",
+        "headerParametersJson": "{\"X-API-Key\":\"{{$env(\"WP_API_KEY\")}}\"}"
+      },
+      "id": "FetchCVs",
+      "name": "Fetch CV Batch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 8,
+      "position": [1140, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "const job = $items(0, 0, 0)[0].json;\nreturn items[0].json.items.map(cv => ({ json: { job, cv } }));"
+      },
+      "id": "MergeJobCV",
+      "name": "Merge Job + CVs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [1380, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 50,
+        "options": {}
+      },
+      "id": "Batching",
+      "name": "Batch 50",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 2,
+      "position": [1620, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "http://matching-api:8000/score",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "{\"job\":{{$item(0).$node[\"Merge Job + CVs\"].json.job}},\"cvs\":{{$json}}}",
+        "headerParametersJson": "{\"Content-Type\":\"application/json\",\"X-API-Key\":\"{{$env(\"MATCHING_API_KEY\")}}\"}",
+        "options": {
+          "timeout": 60000,
+          "maxRetries": 3
+        }
+      },
+      "id": "ScoreBatch",
+      "name": "Score Batch",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 8,
+      "position": [1860, 300]
+    },
+    {
+      "parameters": {
+        "requestMethod": "POST",
+        "url": "http://wordpress/wp-json/keoni/v1/matching",
+        "responseFormat": "json",
+        "jsonParameters": true,
+        "bodyParametersJson": "{\"job_id\":{{$json.job_id}},\"results\":{{$json.results}}}",
+        "headerParametersJson": "{\"X-API-Key\":\"{{$env(\"WP_API_KEY\")}}\"}"
+      },
+      "id": "StoreResults",
+      "name": "Store Results",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 8,
+      "position": [2100, 300]
+    },
+    {
+      "parameters": {
+        "channel": "General",
+        "text": "Workflow Keoni terminé pour job {{$json.job_id}} ({{$json.count}} résultats)."
+      },
+      "id": "Notify",
+      "name": "Slack Notification",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [2340, 300]
+    },
+    {
+      "parameters": {
+        "functionCode": "return [{json: { total_cvs: $json.count }}];"
+      },
+      "id": "CountCVs",
+      "name": "Count CVs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [440, 440]
+    }
+  ],
+  "connections": {
+    "Webhook New Job": {
+      "main": [
+        [
+          {
+            "node": "Get Job",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Count CVs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Job": {
+      "main": [
+        [
+          {
+            "node": "Prepare Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Batches": {
+      "main": [
+        [
+          {
+            "node": "Create Batch Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create Batch Items": {
+      "main": [
+        [
+          {
+            "node": "Fetch CV Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch CV Batch": {
+      "main": [
+        [
+          {
+            "node": "Merge Job + CVs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge Job + CVs": {
+      "main": [
+        [
+          {
+            "node": "Batch 50",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Batch 50": {
+      "main": [
+        [
+          {
+            "node": "Score Batch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Score Batch": {
+      "main": [
+        [
+          {
+            "node": "Store Results",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Results": {
+      "main": [
+        [
+          {
+            "node": "Slack Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
