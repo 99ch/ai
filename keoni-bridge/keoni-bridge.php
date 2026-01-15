@@ -4,7 +4,7 @@
  * Plugin URI:        https://keoni-consulting.net
  * Description:       Pont d'intégration entre WordPress, n8n et le service de matching IA.
  * Version:           0.1.0
- * Author:            Keoni Consulting
+ * Author:            Chilavert N'Dah
  * Author URI:        https://keoni-consulting.net
  * License:           GPL-2.0-or-later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html

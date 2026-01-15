@@ -42,6 +42,23 @@ class Keoni_Bridge_Rest {
             ],
         ] );
 
+        register_rest_route( $this->namespace, '/cv', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ $this, 'store_cv' ],
+            'permission_callback' => [ $this, 'permission_check' ],
+        ] );
+
+        register_rest_route( $this->namespace, '/cv/(?P<id>\d+)', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ $this, 'get_cv_record' ],
+            'permission_callback' => [ $this, 'permission_check' ],
+            'args'                => [
+                'id' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+            ],
+        ] );
+
         register_rest_route( $this->namespace, '/matching', [
             'methods'             => WP_REST_Server::CREATABLE,
             'callback'            => [ $this, 'store_matching' ],
@@ -56,6 +73,7 @@ class Keoni_Bridge_Rest {
                 'job_id'    => [ 'validate_callback' => [ $this, 'validate_numeric_param' ] ],
                 'min_score' => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 0 ],
                 'limit'     => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 20 ],
+                'offset'    => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 0 ],
             ],
         ] );
     }
@@ -130,18 +148,45 @@ class Keoni_Bridge_Rest {
         ] );
     }
 
+    public function store_cv( WP_REST_Request $request ): WP_REST_Response {
+        $payload = $this->get_request_payload( $request );
+
+        $email = sanitize_email( $payload['candidate_email'] ?? '' );
+
+        if ( empty( $email ) ) {
+            return new WP_REST_Response( [ 'message' => 'Payload invalide', 'detail' => 'candidate_email manquant' ], 400 );
+        }
+
+        $data = [
+            'candidate_email'   => $email,
+            'application_title' => sanitize_text_field( $payload['application_title'] ?? '' ),
+            'file_name'         => sanitize_text_field( $payload['file_name'] ?? '' ),
+            'file_path'         => sanitize_text_field( $payload['file_path'] ?? '' ),
+            'text_content'      => wp_kses_post( $payload['text_content'] ?? '' ),
+            'metadata'          => $payload['metadata'] ?? [],
+        ];
+
+        $result = Keoni_Bridge_Repository::upsert_cv( $data );
+        $status = ( 'inserted' === $result['action'] ) ? 201 : 200;
+
+        return new WP_REST_Response( $result, $status );
+    }
+
+    public function get_cv_record( WP_REST_Request $request ): WP_REST_Response {
+        $cv_id = absint( $request['id'] );
+        $cv    = Keoni_Bridge_Repository::get_cv( $cv_id );
+
+        if ( empty( $cv ) ) {
+            return new WP_REST_Response( [ 'message' => 'CV introuvable' ], 404 );
+        }
+
+        return new WP_REST_Response( $cv );
+    }
+
     public function store_matching( WP_REST_Request $request ): WP_REST_Response {
         global $wpdb;
 
-        $payload = $request->get_json_params();
-
-        if ( empty( $payload ) ) {
-            $decoded = json_decode( $request->get_body(), true );
-
-            if ( JSON_ERROR_NONE === json_last_error() && ! empty( $decoded ) ) {
-                $payload = $decoded;
-            }
-        }
+        $payload = $this->get_request_payload( $request );
 
         if ( empty( $payload['job_id'] ) ) {
             return new WP_REST_Response( [ 'message' => 'Payload invalide', 'detail' => 'job_id manquant' ], 400 );
@@ -174,30 +219,21 @@ class Keoni_Bridge_Rest {
     }
 
     public function get_matching( WP_REST_Request $request ): WP_REST_Response {
-        global $wpdb;
-
-        $table     = $wpdb->prefix . 'cv_matching_results';
         $job_id    = absint( $request['job_id'] );
         $min_score = floatval( $request->get_param( 'min_score' ) );
-        $limit     = min( 100, absint( $request->get_param( 'limit' ) ) );
+        $limit     = absint( $request->get_param( 'limit' ) );
+        $offset    = absint( $request->get_param( 'offset' ) );
 
-        $query = $wpdb->prepare(
-            "SELECT * FROM {$table} WHERE job_id = %d AND score >= %f ORDER BY score DESC LIMIT %d",
-            $job_id,
-            $min_score,
-            $limit
-        );
+        $results = Keoni_Bridge_Repository::get_matching_results( $job_id, $min_score, $limit, $offset );
 
-        $items = $wpdb->get_results( $query, ARRAY_A );
+        $with_html = (bool) $request->get_param( 'with_html' );
 
-        foreach ( $items as &$item ) {
-            $item['strengths'] = json_decode( (string) $item['strengths'], true ) ?: [];
-            $item['weaknesses']= json_decode( (string) $item['weaknesses'], true ) ?: [];
-            $item['keywords']  = json_decode( (string) $item['keywords'], true ) ?: [];
-            $item['extra']     = json_decode( (string) $item['extra'], true ) ?: [];
+        if ( $with_html && ! empty( $results['items'] ) && class_exists( 'Keoni_Bridge_Shortcode' ) ) {
+            $cv_map = Keoni_Bridge_Repository::get_cvs_by_ids( wp_list_pluck( $results['items'], 'cv_id' ) );
+            $results['items_html'] = Keoni_Bridge_Shortcode::render_cards_html( $results['items'], $cv_map );
         }
 
-        return new WP_REST_Response( [ 'items' => $items ] );
+        return new WP_REST_Response( $results );
     }
 
     public function validate_numeric_param( $value, ?WP_REST_Request $request = null, string $param = '' ): bool {
@@ -274,5 +310,23 @@ class Keoni_Bridge_Rest {
         }
 
         return $created;
+    }
+
+    private function get_request_payload( WP_REST_Request $request ): array {
+        $payload = $request->get_json_params();
+
+        if ( is_array( $payload ) && ! empty( $payload ) ) {
+            return $payload;
+        }
+
+        $raw_body = (string) $request->get_body();
+
+        if ( empty( $raw_body ) ) {
+            return [];
+        }
+
+        $decoded = json_decode( $raw_body, true );
+
+        return ( JSON_ERROR_NONE === json_last_error() && is_array( $decoded ) ) ? $decoded : [];
     }
 }

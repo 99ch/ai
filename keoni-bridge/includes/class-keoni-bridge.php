@@ -8,6 +8,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 require_once __DIR__ . '/class-keoni-bridge-admin.php';
+require_once __DIR__ . '/class-keoni-bridge-repository.php';
 require_once __DIR__ . '/class-keoni-bridge-rest.php';
 require_once __DIR__ . '/class-keoni-bridge-shortcode.php';
 require_once __DIR__ . '/class-keoni-bridge-hooks.php';
@@ -55,8 +56,10 @@ class Keoni_Bridge {
 
     public static function get_settings(): array {
         $defaults = [
-            'webhook_url'  => '',
-            'matching_url' => '',
+            'webhook_url'    => '',
+            'matching_url'   => '',
+            'webhook_secret' => '',
+            'cv_roles'       => [ 'administrator' ],
         ];
 
         return wp_parse_args( get_option( 'keoni_bridge_settings', [] ), $defaults );

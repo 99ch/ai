@@ -82,6 +82,7 @@ class Keoni_Bridge_Install {
         update_option( self::OPTION_SETTINGS, [
             'webhook_url'  => '',
             'matching_url' => '',
+            'webhook_secret' => '',
         ] );
     }
 }
