@@ -30,7 +30,7 @@ class Keoni_Bridge {
     }
 
     private function __construct() {
-        add_action( 'plugins_loaded', [ $this, 'boot' ] );
+        add_action( 'init', [ $this, 'boot' ] );
     }
 
     public function boot(): void {
