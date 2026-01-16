@@ -29,6 +29,12 @@ if ( version_compare( PHP_VERSION, KEONI_BRIDGE_MIN_PHP, '<' ) ) {
 require_once __DIR__ . '/includes/class-keoni-bridge-install.php';
 require_once __DIR__ . '/includes/class-keoni-bridge.php';
 
+add_action( 'init', 'keoni_bridge_load_textdomain' );
+
+function keoni_bridge_load_textdomain(): void {
+    load_plugin_textdomain( 'keoni-bridge', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+}
+
 register_activation_hook( __FILE__, [ 'Keoni_Bridge_Install', 'activate' ] );
 register_deactivation_hook( __FILE__, [ 'Keoni_Bridge_Install', 'deactivate' ] );
 register_uninstall_hook( __FILE__, 'keoni_bridge_uninstall' );
