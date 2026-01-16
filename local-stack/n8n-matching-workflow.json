@@ -1,220 +1,200 @@
 {
-  "name": "Keoni Matching Pipeline",
-  "active": false,
-  "versionId": "b5a7c1c8-1b2d-4e0f-9453-1a7dfcc2e9aa",
+  "name": "js-job pipeline",
   "nodes": [
     {
       "parameters": {
+        "httpMethod": "POST",
         "path": "keoni/new-job",
-        "options": {
-          "responseContent": "{\"status\":\"received\"}"
-        }
-      },
-      "id": "Webhook",
-      "name": "Webhook New Job",
-      "type": "n8n-nodes-base.webhook",
-      "typeVersion": 1,
-      "position": [200, 300]
-    },
-    {
-      "parameters": {
-        "requestMethod": "GET",
-        "url": "http://wordpress/wp-json/keoni/v1/job/{{$json[\"job_post_id\"]}}",
-        "responseFormat": "json",
-        "jsonParameters": true,
-        "headerParametersJson": "{\"X-API-Key\":\"{{$env(\"WP_API_KEY\")}}\"}"
-      },
-      "id": "GetJob",
-      "name": "Get Job",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 8,
-      "position": [440, 160]
-    },
-    {
-      "parameters": {
-        "functionCode": "return [{ json: { batches: Math.ceil(items[0].json.total_cvs / 100) || 1 } }];"
-      },
-      "id": "PrepareLoop",
-      "name": "Prepare Batches",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [680, 300]
-    },
-    {
-      "parameters": {
-        "functionCode": "const batches = items[0].json.batches;\nconst outputs = [];\nfor (let i = 0; i < batches; i++) {\n  outputs.push({ json: { offset: i * 100, limit: 100 } });\n}\nreturn outputs;"
-      },
-      "id": "CreateBatchItems",
-      "name": "Create Batch Items",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [900, 300]
-    },
-    {
-      "parameters": {
-        "requestMethod": "GET",
-        "url": "http://wordpress/wp-json/keoni/v1/cvs",
-        "responseFormat": "json",
-        "jsonParameters": true,
-        "queryParametersJson": "{\"offset\":{{$json.offset}},\"limit\":{{$json.limit}}}",
-        "headerParametersJson": "{\"X-API-Key\":\"{{$env(\"WP_API_KEY\")}}\"}"
-      },
-      "id": "FetchCVs",
-      "name": "Fetch CV Batch",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 8,
-      "position": [1140, 300]
-    },
-    {
-      "parameters": {
-        "functionCode": "const job = $items(0, 0, 0)[0].json;\nreturn items[0].json.items.map(cv => ({ json: { job, cv } }));"
-      },
-      "id": "MergeJobCV",
-      "name": "Merge Job + CVs",
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [1380, 300]
-    },
-    {
-      "parameters": {
-        "batchSize": 50,
+        "responseMode": "onReceived",
+        "responseData": "json",
+        "responseBody": "{\"status\":\"received\"}",
+        "responseCode": 200,
         "options": {}
       },
-      "id": "Batching",
-      "name": "Batch 50",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -960,
+        40
+      ],
+      "id": "4616d91b-a454-4e3f-a206-4f5c3553454d",
+      "name": "New Job",
+      "webhookId": "ef3c9044-2792-4a3f-b100-5e6aef615dcb"
+    },
+    {
+      "parameters": {
+        "jsCode": "const apiKey = 'lN)KaQ22wfBd^mk[;ooh#zhWm6FA@ZOxhO!b&3tk*vM@jtLwjFyLT:tEIU9)Eu[2';\nconst cvsBaseUrl = 'http://172.20.10.2:8080/wp-json/keoni/v1/cvs';\nconst jobBaseUrl = 'http://172.20.10.2:8080/wp-json/keoni/v1/job';\nconst chunkSize = 200;\nconst limit = 100;\nlet offset = 0;\nconst all = [];\n\nconst jobPostId = $json?.body?.job_post_id;\nif (!jobPostId) {\n  throw new Error('Missing job_post_id in webhook payload');\n}\n\nconst headers = { 'X-API-Key': apiKey };\nconst job = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${jobBaseUrl}/${jobPostId}`,\n  headers,\n});\n\nwhile (true) {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${cvsBaseUrl}?offset=${offset}&limit=${limit}`,\n    headers,\n  });\n\n  const items = Array.isArray(response.items) ? response.items : [];\n  all.push(...items);\n\n  if (items.length < limit) {\n    break;\n  }\n\n  offset += limit;\n}\n\nif (!all.length) {\n  return [{ json: { ...job, cvs: [] } }];\n}\n\nconst chunks = [];\nfor (let i = 0; i < all.length; i += chunkSize) {\n  const copy = JSON.parse(JSON.stringify(job));\n  copy.cvs = all.slice(i, i + chunkSize);\n  chunks.push({ json: copy });\n}\n\nreturn chunks;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -520,
+        40
+      ],
+      "id": "1f55b0cc-8a00-4f75-b8fb-8d764813e66c",
+      "name": "Fetch All CVs"
+    },
+    {
+      "parameters": {
+        "jsCode": "function normalizeList(value) {\n  if (Array.isArray(value)) {\n    return value.map(v => String(v).trim()).filter(Boolean);\n  }\n  if (!value) {\n    return [];\n  }\n  return String(value)\n    .replace(/<[^>]*>/g, ' ')\n    .split(/[,;\\n]+/)\n    .map(v => v.trim())\n    .filter(Boolean);\n}\n\nconst jobRaw = $json;\nconst cvs = Array.isArray(jobRaw.cvs) ? jobRaw.cvs : [];\nconst job = {\n  id: jobRaw.id,\n  title: jobRaw.title,\n  description: jobRaw.content || jobRaw.description || '',\n  excerpt: jobRaw.excerpt || '',\n  keywords: normalizeList(jobRaw.keywords),\n  location: jobRaw.location || '',\n  meta: jobRaw.meta || {},\n};\n\nconst items = cvs.map(cv => ({ json: { job, cv } }));\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        40,
+        40
+      ],
+      "id": "9aece53f-7a49-4fc5-bb6b-0d42bd102f84",
+      "name": "Normalize Job + CV"
+    },
+    {
+      "parameters": {
+        "batchSize": 50
+      },
       "type": "n8n-nodes-base.splitInBatches",
       "typeVersion": 2,
-      "position": [1620, 300]
+      "position": [
+        280,
+        40
+      ],
+      "id": "2de8677a-71b5-4f2e-9c89-9d4f83f47d2b",
+      "name": "Split Batches"
     },
     {
       "parameters": {
-        "requestMethod": "POST",
-        "url": "http://matching-api:8000/score",
-        "responseFormat": "json",
-        "jsonParameters": true,
-        "bodyParametersJson": "{\"job\":{{$item(0).$node[\"Merge Job + CVs\"].json.job}},\"cvs\":{{$json}}}",
-        "headerParametersJson": "{\"Content-Type\":\"application/json\",\"X-API-Key\":\"{{$env(\"MATCHING_API_KEY\")}}\"}",
-        "options": {
-          "timeout": 60000,
-          "maxRetries": 3
-        }
+        "jsCode": "const items = $input.all();\nif (!items.length) {\n  return [];\n}\nconst job = items[0].json.job;\nconst cvs = items.map(item => item.json.cv);\nreturn [{ json: { job, cvs } }];\n"
       },
-      "id": "ScoreBatch",
-      "name": "Score Batch",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 8,
-      "position": [1860, 300]
-    },
-    {
-      "parameters": {
-        "requestMethod": "POST",
-        "url": "http://wordpress/wp-json/keoni/v1/matching",
-        "responseFormat": "json",
-        "jsonParameters": true,
-        "bodyParametersJson": "{\"job_id\":{{$json.job_id}},\"results\":{{$json.results}}}",
-        "headerParametersJson": "{\"X-API-Key\":\"{{$env(\"WP_API_KEY\")}}\"}"
-      },
-      "id": "StoreResults",
-      "name": "Store Results",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 8,
-      "position": [2100, 300]
-    },
-    {
-      "parameters": {
-        "channel": "General",
-        "text": "Workflow Keoni terminé pour job {{$json.job_id}} ({{$json.count}} résultats)."
-      },
-      "id": "Notify",
-      "name": "Slack Notification",
-      "type": "n8n-nodes-base.slack",
-      "typeVersion": 1,
-      "position": [2340, 300]
-    },
-    {
-      "parameters": {
-        "functionCode": "return [{json: { total_cvs: $json.count }}];"
-      },
-      "id": "CountCVs",
-      "name": "Count CVs",
       "type": "n8n-nodes-base.code",
-      "typeVersion": 1,
-      "position": [440, 440]
+      "typeVersion": 2,
+      "position": [
+        520,
+        40
+      ],
+      "id": "bb08e8a0-01da-4995-9a94-07bc5f63efcf",
+      "name": "Build Batch Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.20.10.2:8000/score",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "b6f79b4a1c3849e9b3e4c41c6a1fcb32"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job",
+              "value": "={{ $json.job }}"
+            },
+            {
+              "name": "cvs",
+              "value": "={{ $json.cvs }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        760,
+        40
+      ],
+      "id": "1b397472-6395-47f6-8c40-f3d29e20b280",
+      "name": "Score Batch"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://172.20.10.2:8080/wp-json/keoni/v1/matching",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "lN)KaQ22wfBd^mk[;ooh#zhWm6FA@ZOxhO!b&3tk*vM@jtLwjFyLT:tEIU9)Eu[2"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{ $json.job_id || $json.job.id }}"
+            },
+            {
+              "name": "results",
+              "value": "={{ $json.results }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        980,
+        40
+      ],
+      "id": "74234c91-c31e-42d3-be8d-70705acb8ec3",
+      "name": "Store Results"
     }
   ],
+  "pinData": {},
   "connections": {
-    "Webhook New Job": {
+    "New Job": {
       "main": [
         [
           {
-            "node": "Get Job",
-            "type": "main",
-            "index": 0
-          },
-          {
-            "node": "Count CVs",
+            "node": "Fetch All CVs",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Get Job": {
+    "Fetch All CVs": {
       "main": [
         [
           {
-            "node": "Prepare Batches",
+            "node": "Normalize Job + CV",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Prepare Batches": {
+    "Normalize Job + CV": {
       "main": [
         [
           {
-            "node": "Create Batch Items",
+            "node": "Split Batches",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Create Batch Items": {
+    "Split Batches": {
       "main": [
         [
           {
-            "node": "Fetch CV Batch",
+            "node": "Build Batch Payload",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Fetch CV Batch": {
-      "main": [
-        [
-          {
-            "node": "Merge Job + CVs",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Merge Job + CVs": {
-      "main": [
-        [
-          {
-            "node": "Batch 50",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Batch 50": {
+    "Build Batch Payload": {
       "main": [
         [
           {
@@ -240,7 +220,7 @@
       "main": [
         [
           {
-            "node": "Slack Notification",
+            "node": "Split Batches",
             "type": "main",
             "index": 0
           }
@@ -248,8 +228,14 @@
       ]
     }
   },
+  "active": true,
   "settings": {
     "executionOrder": "v1"
   },
-  "pinData": {}
+  "versionId": "0ffa847a-ed68-4ff3-8ff6-f7dde67d5223",
+  "meta": {
+    "instanceId": "27274c4c65a49cb07943913bf384c3d66d83f959619587ff5a78761b99dc5546"
+  },
+  "id": "1eD2A59Ba6KEZgpP",
+  "tags": []
 }
