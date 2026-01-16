@@ -47,6 +47,15 @@ class Keoni_Bridge_Admin {
             'keoni-bridge-cv-db',
             [ $this, 'render_cv_database_page' ]
         );
+
+        add_submenu_page(
+            $this->menu_slug,
+            __( 'Matching Results', 'keoni-bridge' ),
+            __( 'Matching Results', 'keoni-bridge' ),
+            'manage_options',
+            'keoni-bridge-matching-results',
+            [ $this, 'render_matching_results_page' ]
+        );
     }
 
     public function register_settings(): void {
@@ -199,6 +208,141 @@ class Keoni_Bridge_Admin {
                 $this->render_cv_list_view();
             }
             ?>
+        </div>
+        <?php
+    }
+
+    public function render_matching_results_page(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        $job_id    = isset( $_GET['job_id'] ) ? absint( wp_unslash( $_GET['job_id'] ) ) : 0;
+        $min_score = isset( $_GET['min_score'] ) ? floatval( wp_unslash( $_GET['min_score'] ) ) : 0;
+        $limit     = isset( $_GET['limit'] ) ? max( 1, min( 100, absint( $_GET['limit'] ) ) ) : 20;
+        $paged     = isset( $_GET['paged'] ) ? max( 1, absint( $_GET['paged'] ) ) : 1;
+        $offset    = ( $paged - 1 ) * $limit;
+
+        $results = [
+            'items'  => [],
+            'total'  => 0,
+            'limit'  => $limit,
+            'offset' => $offset,
+        ];
+
+        $cv_map = [];
+
+        if ( $job_id > 0 ) {
+            $results = Keoni_Bridge_Repository::get_matching_results( $job_id, $min_score, $limit, $offset );
+
+            if ( ! empty( $results['items'] ) ) {
+                $cv_map = Keoni_Bridge_Repository::get_cvs_by_ids( wp_list_pluck( $results['items'], 'cv_id' ) );
+            }
+        }
+
+        $items       = $results['items'];
+        $total       = (int) ( $results['total'] ?? 0 );
+        $total_pages = max( 1, (int) ceil( $total / $limit ) );
+        $current     = min( $total_pages, max( 1, (int) ceil( ( $results['offset'] ?? 0 + 1 ) / $limit ) ) );
+
+        $base_url = add_query_arg(
+            [
+                'page'      => 'keoni-bridge-matching-results',
+                'job_id'    => $job_id,
+                'min_score' => $min_score,
+                'limit'     => $limit,
+            ],
+            admin_url( 'admin.php' )
+        );
+
+        $pagination = paginate_links( [
+            'base'      => add_query_arg( 'paged', '%#%', $base_url ),
+            'format'    => '',
+            'current'   => $current,
+            'total'     => max( 1, $total_pages ),
+            'prev_text' => '&laquo;',
+            'next_text' => '&raquo;',
+            'type'      => 'array',
+        ] );
+        ?>
+        <div class="wrap">
+            <h1><?php esc_html_e( 'Matching Results', 'keoni-bridge' ); ?></h1>
+            <form method="get" class="keoni-bridge-matching-filters">
+                <input type="hidden" name="page" value="keoni-bridge-matching-results" />
+                <p class="search-box">
+                    <label class="screen-reader-text" for="keoni-matching-job-id"><?php esc_html_e( 'Identifiant de l\'offre', 'keoni-bridge' ); ?></label>
+                    <input type="number" id="keoni-matching-job-id" name="job_id" value="<?php echo esc_attr( $job_id ); ?>" placeholder="<?php esc_attr_e( 'Job ID', 'keoni-bridge' ); ?>" />
+                    <label for="keoni-matching-min-score" class="screen-reader-text"><?php esc_html_e( 'Score minimum', 'keoni-bridge' ); ?></label>
+                    <input type="number" step="0.1" id="keoni-matching-min-score" name="min_score" value="<?php echo esc_attr( $min_score ); ?>" placeholder="<?php esc_attr_e( 'Score min', 'keoni-bridge' ); ?>" />
+                    <label for="keoni-matching-limit" class="screen-reader-text"><?php esc_html_e( 'Résultats par page', 'keoni-bridge' ); ?></label>
+                    <input type="number" id="keoni-matching-limit" name="limit" value="<?php echo esc_attr( $limit ); ?>" min="1" max="100" />
+                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Afficher', 'keoni-bridge' ); ?></button>
+                </p>
+            </form>
+
+            <?php if ( 0 === $job_id ) : ?>
+                <p><?php esc_html_e( 'Saisissez un identifiant d\'offre pour voir les résultats du scoring.', 'keoni-bridge' ); ?></p>
+            <?php elseif ( empty( $items ) ) : ?>
+                <p><?php esc_html_e( 'Aucun résultat pour ces critères.', 'keoni-bridge' ); ?></p>
+            <?php else : ?>
+                <table class="widefat fixed striped">
+                    <thead>
+                        <tr>
+                            <th><?php esc_html_e( 'Rang', 'keoni-bridge' ); ?></th>
+                            <th><?php esc_html_e( 'CV', 'keoni-bridge' ); ?></th>
+                            <th><?php esc_html_e( 'Score', 'keoni-bridge' ); ?></th>
+                            <th><?php esc_html_e( 'Candidat', 'keoni-bridge' ); ?></th>
+                            <th><?php esc_html_e( 'Forces', 'keoni-bridge' ); ?></th>
+                            <th><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></th>
+                            <th><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></th>
+                            <th><?php esc_html_e( 'Mis à jour', 'keoni-bridge' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $items as $index => $item ) :
+                            $cv_id   = (int) ( $item['cv_id'] ?? 0 );
+                            $cv      = $cv_map[ $cv_id ] ?? null;
+                            $name    = $cv['application_title'] ?? sprintf( __( 'Candidat #%d', 'keoni-bridge' ), $cv_id );
+                            $email   = $cv['candidate_email'] ?? '';
+                            $rank    = (int) ( $results['offset'] ?? 0 ) + $index + 1;
+                            $edit_cv = $cv_id ? add_query_arg( [
+                                'page'   => 'keoni-bridge-cv-db',
+                                'action' => 'edit',
+                                'cv_id'  => $cv_id,
+                            ], admin_url( 'admin.php' ) ) : '';
+                            ?>
+                            <tr>
+                                <td><?php echo esc_html( $rank ); ?></td>
+                                <td>
+                                    #<?php echo esc_html( $cv_id ); ?>
+                                    <?php if ( $edit_cv ) : ?>
+                                        <div><a href="<?php echo esc_url( $edit_cv ); ?>" class="button-link"><?php esc_html_e( 'Voir le CV', 'keoni-bridge' ); ?></a></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td><strong><?php echo esc_html( number_format_i18n( (float) $item['score'], 2 ) ); ?></strong></td>
+                                <td>
+                                    <?php echo esc_html( $name ); ?>
+                                    <?php if ( $email ) : ?>
+                                        <div><a href="mailto:<?php echo esc_attr( $email ); ?>"><?php echo esc_html( $email ); ?></a></div>
+                                    <?php endif; ?>
+                                </td>
+                                <td><?php echo esc_html( $this->format_values_list( (array) ( $item['strengths'] ?? [] ) ) ); ?></td>
+                                <td><?php echo esc_html( $this->format_values_list( (array) ( $item['weaknesses'] ?? [] ) ) ); ?></td>
+                                <td><?php echo esc_html( $this->format_values_list( (array) ( $item['keywords'] ?? [] ) ) ); ?></td>
+                                <td><?php echo esc_html( $item['updated_at'] ?? '' ); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+
+                <?php if ( ! empty( $pagination ) ) : ?>
+                    <div class="tablenav">
+                        <div class="tablenav-pages">
+                            <?php foreach ( $pagination as $link ) { echo wp_kses_post( $link ); } ?>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            <?php endif; ?>
         </div>
         <?php
     }
@@ -510,6 +654,18 @@ class Keoni_Bridge_Admin {
         }
 
         return array_values( array_unique( $selected ) );
+    }
+
+    private function format_values_list( array $values ): string {
+        $clean = array_filter( array_map( static function ( $value ) {
+            return trim( wp_strip_all_tags( (string) $value ) );
+        }, $values ) );
+
+        if ( empty( $clean ) ) {
+            return __( 'Non renseigné', 'keoni-bridge' );
+        }
+
+        return implode( ', ', $clean );
     }
 
     private function sync_cv_capability( array $roles ): void {

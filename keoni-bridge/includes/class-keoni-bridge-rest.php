@@ -131,10 +131,19 @@ class Keoni_Bridge_Rest {
         $offset = absint( $request->get_param( 'offset' ) );
         $limit  = min( 500, max( 1, absint( $request->get_param( 'limit' ) ) ) );
 
-        $table = $wpdb->prefix . 'js_job_resume';
+        $resume_table = $wpdb->prefix . 'js_job_resume';
+        $cv_table     = $wpdb->prefix . 'cv_database';
 
         $rows = $wpdb->get_results(
-            $wpdb->prepare( "SELECT * FROM {$table} ORDER BY last_modified DESC LIMIT %d OFFSET %d", $limit, $offset ),
+            $wpdb->prepare(
+                "SELECT r.*, d.text_content AS cv_text_content, d.metadata AS cv_metadata
+                 FROM {$resume_table} r
+                 LEFT JOIN {$cv_table} d ON d.candidate_email = r.email_address
+                 ORDER BY r.last_modified DESC
+                 LIMIT %d OFFSET %d",
+                $limit,
+                $offset
+            ),
             ARRAY_A
         );
 
@@ -297,8 +306,24 @@ class Keoni_Bridge_Rest {
             'experience'  => absint( $resume['experienceid'] ?? 0 ),
             'skills'      => wp_strip_all_tags( $resume['skills'] ?? '' ),
             'resume'      => wp_kses_post( $resume['resume'] ?? '' ),
+            'text_content'=> wp_kses_post( $resume['cv_text_content'] ?? '' ),
+            'metadata'    => $this->normalize_cv_metadata( $resume['cv_metadata'] ?? '' ),
             'updated_at'  => $this->resume_updated_at( $resume ),
         ];
+    }
+
+    private function normalize_cv_metadata( $raw ): array {
+        if ( empty( $raw ) ) {
+            return [];
+        }
+
+        if ( is_array( $raw ) ) {
+            return $raw;
+        }
+
+        $decoded = json_decode( (string) $raw, true );
+
+        return ( JSON_ERROR_NONE === json_last_error() && is_array( $decoded ) ) ? $decoded : [];
     }
 
     private function resume_updated_at( array $resume ): string {
