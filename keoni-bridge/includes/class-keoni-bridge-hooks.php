@@ -16,6 +16,8 @@ class Keoni_Bridge_Hooks {
         add_action( 'keoni_bridge_scan_jobs', [ $this, 'scan_js_jobs' ] );
         add_filter( 'cron_schedules', [ $this, 'register_cron_interval' ] );
 
+        add_action( 'wp_ajax_keoni_bridge_run_matching', [ $this, 'ajax_run_matching' ] );
+
         if ( ! wp_next_scheduled( 'keoni_bridge_scan_jobs' ) ) {
             wp_schedule_event( time() + 60, 'five_minutes', 'keoni_bridge_scan_jobs' );
         }
@@ -55,6 +57,24 @@ class Keoni_Bridge_Hooks {
             ],
             'body'    => wp_json_encode( $body ),
         ] );
+    }
+
+    public function ajax_run_matching(): void {
+        if ( ! current_user_can( 'manage_keoni_bridge_cv_db' ) ) {
+            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
+        }
+
+        check_ajax_referer( 'keoni_bridge_run_matching', 'nonce' );
+
+        $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
+
+        if ( $job_id <= 0 ) {
+            wp_send_json_error( [ 'message' => __( 'Job invalide.', 'keoni-bridge' ) ], 400 );
+        }
+
+        $this->trigger_webhook( $job_id );
+
+        wp_send_json_success( [ 'message' => __( 'Matching IA lancé pour cette offre.', 'keoni-bridge' ) ] );
     }
 
     public function scan_js_jobs(): void {
