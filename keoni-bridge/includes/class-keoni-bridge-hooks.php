@@ -60,16 +60,16 @@ class Keoni_Bridge_Hooks {
     }
 
     public function ajax_run_matching(): void {
-        if ( ! current_user_can( 'manage_keoni_bridge_cv_db' ) ) {
-            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
-        }
-
         check_ajax_referer( 'keoni_bridge_run_matching', 'nonce' );
 
         $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
 
         if ( $job_id <= 0 ) {
             wp_send_json_error( [ 'message' => __( 'Job invalide.', 'keoni-bridge' ) ], 400 );
+        }
+
+        if ( ! $this->user_can_manage_job_matching( $job_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
         }
 
         $this->trigger_webhook( $job_id );
@@ -118,5 +118,30 @@ class Keoni_Bridge_Hooks {
         ];
 
         return $schedules;
+    }
+
+    private function user_can_manage_job_matching( int $job_id ): bool {
+        if ( current_user_can( 'manage_keoni_bridge_cv_db' ) ) {
+            return true;
+        }
+
+        $user_id = get_current_user_id();
+
+        if ( $user_id <= 0 ) {
+            return false;
+        }
+
+        $jobs_role = get_user_meta( $user_id, 'jobs_role', true );
+
+        if ( 'employer' !== $jobs_role ) {
+            return false;
+        }
+
+        global $wpdb;
+
+        $table    = $wpdb->prefix . 'js_job_jobs';
+        $owner_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT uid FROM {$table} WHERE id = %d LIMIT 1", $job_id ) );
+
+        return $owner_id > 0 && $owner_id === $user_id;
     }
 }
