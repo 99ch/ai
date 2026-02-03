@@ -306,10 +306,27 @@ class Keoni_Bridge_Rest {
             'experience'  => absint( $resume['experienceid'] ?? 0 ),
             'skills'      => wp_strip_all_tags( $resume['skills'] ?? '' ),
             'resume'      => wp_kses_post( $resume['resume'] ?? '' ),
-            'text_content'=> wp_kses_post( $resume['cv_text_content'] ?? '' ),
+            'text_content'=> $this->build_resume_text_content( $resume ),
             'metadata'    => $this->normalize_cv_metadata( $resume['cv_metadata'] ?? '' ),
             'updated_at'  => $this->resume_updated_at( $resume ),
         ];
+    }
+
+    private function build_resume_text_content( array $resume ): string {
+        $base = wp_strip_all_tags( $resume['cv_text_content'] ?? '' );
+
+        $extras = [
+            $resume['application_title'] ?? '',
+            $resume['first_name'] ?? '',
+            $resume['last_name'] ?? '',
+            $resume['keywords'] ?? '',
+            $resume['skills'] ?? '',
+            $resume['resume'] ?? '',
+        ];
+
+        $combined = trim( preg_replace( '/\s+/', ' ', $base . ' ' . implode( ' ', array_filter( $extras ) ) ) );
+
+        return $combined;
     }
 
     private function normalize_cv_metadata( $raw ): array {

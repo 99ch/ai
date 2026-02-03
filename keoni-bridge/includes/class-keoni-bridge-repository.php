@@ -86,7 +86,19 @@ class Keoni_Bridge_Repository {
         $table = $wpdb->prefix . 'cv_matching_results';
 
         $query = $wpdb->prepare(
-            "SELECT SQL_CALC_FOUND_ROWS * FROM {$table} WHERE job_id = %d AND score >= %f ORDER BY score DESC LIMIT %d OFFSET %d",
+            "SELECT SQL_CALC_FOUND_ROWS
+                    cv_id,
+                    MAX(score) AS score,
+                    MAX(strengths) AS strengths,
+                    MAX(weaknesses) AS weaknesses,
+                    MAX(keywords) AS keywords,
+                    MAX(extra) AS extra,
+                    MAX(updated_at) AS updated_at
+             FROM {$table}
+             WHERE job_id = %d AND score >= %f
+             GROUP BY cv_id
+             ORDER BY score DESC
+             LIMIT %d OFFSET %d",
             $job_id,
             $min_score,
             $limit,
@@ -109,6 +121,257 @@ class Keoni_Bridge_Repository {
             'limit'  => $limit,
             'offset' => $offset,
         ];
+    }
+
+    public static function get_matching_status( int $job_id ): array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'cv_matching_results';
+
+        $last_updated = $wpdb->get_var(
+            $wpdb->prepare( "SELECT MAX(updated_at) FROM {$table} WHERE job_id = %d", $job_id )
+        );
+
+        $total = (int) $wpdb->get_var(
+            $wpdb->prepare( "SELECT COUNT(DISTINCT cv_id) FROM {$table} WHERE job_id = %d", $job_id )
+        );
+
+        return [
+            'total'        => $total,
+            'last_updated' => $last_updated ?: '',
+        ];
+    }
+
+    public static function get_resumes_by_emails( array $emails ): array {
+        global $wpdb;
+
+        $emails = array_values( array_unique( array_filter( array_map( 'sanitize_email', $emails ) ) ) );
+
+        if ( empty( $emails ) ) {
+            return [];
+        }
+
+        $placeholders = implode( ',', array_fill( 0, count( $emails ), '%s' ) );
+        $resume_table = $wpdb->prefix . 'js_job_resume';
+        $cat_table    = $wpdb->prefix . 'js_job_categories';
+        $jobtype_tbl  = $wpdb->prefix . 'js_job_jobtypes';
+        $salary_tbl   = $wpdb->prefix . 'js_job_salaryrange';
+        $salary_type  = $wpdb->prefix . 'js_job_salaryrangetypes';
+        $currency_tbl = $wpdb->prefix . 'js_job_currencies';
+        $city_tbl     = $wpdb->prefix . 'js_job_cities';
+        $state_tbl    = $wpdb->prefix . 'js_job_states';
+        $country_tbl  = $wpdb->prefix . 'js_job_countries';
+        $exp_tbl      = $wpdb->prefix . 'js_job_experiences';
+
+          $query = $wpdb->prepare(
+                "SELECT resume.id, CONCAT(resume.alias,'-',resume.id) AS aliasid, resume.first_name, resume.last_name,
+                    resume.application_title, resume.email_address, category.cat_title,
+                    exp.title AS total_experience, resume.created, jobtype.title AS jobtypetitle,
+                    resume.photo, salary_from.rangestart, salary_to.rangeend, rangetype.title AS rangetype,
+                          currency.symbol, city.cityName AS cityname, state.name AS statename,
+                          country.name AS countryname
+             FROM {$resume_table} AS resume
+                 LEFT JOIN {$cat_table} AS category ON category.id = resume.job_category
+             LEFT JOIN {$jobtype_tbl} AS jobtype ON jobtype.id = resume.jobtype
+             LEFT JOIN {$salary_tbl} AS salary_from ON salary_from.id = resume.jobsalaryrangestart
+             LEFT JOIN {$salary_tbl} AS salary_to ON salary_to.id = resume.jobsalaryrangeend
+             LEFT JOIN {$salary_type} AS rangetype ON rangetype.id = resume.jobsalaryrangetype
+             LEFT JOIN {$currency_tbl} AS currency ON currency.id = resume.currencyid
+                 LEFT JOIN (
+                     SELECT resumeid, MAX(address_city) AS address_city
+                     FROM {$wpdb->prefix}js_job_resumeaddresses
+                     GROUP BY resumeid
+                 ) AS address ON address.resumeid = resume.id
+             LEFT JOIN {$city_tbl} AS city ON city.id = address.address_city
+             LEFT JOIN {$state_tbl} AS state ON state.id = city.stateid
+             LEFT JOIN {$country_tbl} AS country ON country.id = city.countryid
+             LEFT JOIN {$exp_tbl} AS exp ON exp.id = resume.experienceid
+             WHERE resume.email_address IN ({$placeholders})
+             GROUP BY resume.id",
+            ...$emails
+        );
+
+        $rows = $wpdb->get_results( $query, ARRAY_A );
+
+        if ( empty( $rows ) ) {
+            return [];
+        }
+
+        $common_model = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'common' ) : null;
+        $config_model = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'configuration' ) : null;
+        $data_directory = $config_model ? $config_model->getConfigurationByConfigName( 'data_directory' ) : '';
+        $uploads        = wp_get_upload_dir();
+        $default_avatar = defined( 'JSJOBS_PLUGIN_URL' ) ? JSJOBS_PLUGIN_URL . 'includes/images/users.png' : '';
+        $resume_page_id = class_exists( 'jsjobs' ) ? jsjobs::getPageid() : 0;
+
+        $indexed = [];
+
+        foreach ( $rows as $row ) {
+            $salary = '';
+            $location = '';
+
+            if ( $common_model ) {
+                $salary   = $common_model->getSalaryRangeView( $row['symbol'] ?? '', $row['rangestart'] ?? '', $row['rangeend'] ?? '', $row['rangetype'] ?? '' );
+                $location = $common_model->getLocationForView( $row['cityname'] ?? '', $row['statename'] ?? '', $row['countryname'] ?? '' );
+            } else {
+                $location = implode( ', ', array_filter( [ $row['cityname'] ?? '', $row['statename'] ?? '', $row['countryname'] ?? '' ] ) );
+            }
+
+            $photo_url = $default_avatar;
+
+            if ( ! empty( $row['photo'] ) && ! empty( $uploads['baseurl'] ) && ! empty( $data_directory ) ) {
+                $photo_url = trailingslashit( $uploads['baseurl'] ) . $data_directory . '/data/jobseeker/resume_' . $row['id'] . '/photo/' . $row['photo'];
+            }
+
+            $view_url = '';
+
+            if ( class_exists( 'jsjobs' ) ) {
+                $view_url = jsjobs::makeUrl( [
+                    'jsjobsme'    => 'resume',
+                    'jsjobslt'    => 'viewresume',
+                    'jsjobsid'    => $row['aliasid'],
+                    'jsjobspageid'=> $resume_page_id,
+                ] );
+            }
+
+            $email_key = strtolower( $row['email_address'] ?? '' );
+
+            if ( empty( $email_key ) ) {
+                continue;
+            }
+
+            $indexed[ $email_key ] = [
+                'id'                => (int) $row['id'],
+                'alias_id'          => $row['aliasid'],
+                'first_name'        => $row['first_name'],
+                'last_name'         => $row['last_name'],
+                'job_type'          => $row['jobtypetitle'],
+                'application_title' => $row['application_title'],
+                'email'             => $row['email_address'],
+                'category'          => $row['cat_title'],
+                'experience'        => $row['total_experience'],
+                'salary'            => $salary,
+                'location'          => $location,
+                'photo_url'         => $photo_url,
+                'view_url'          => $view_url,
+                'created_at'        => $row['created'],
+            ];
+        }
+
+        return $indexed;
+    }
+
+    public static function get_resumes_by_ids( array $ids ): array {
+        global $wpdb;
+
+        $ids = array_values( array_unique( array_filter( array_map( 'absint', $ids ) ) ) );
+
+        if ( empty( $ids ) ) {
+            return [];
+        }
+
+        $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+        $resume_table = $wpdb->prefix . 'js_job_resume';
+        $cat_table    = $wpdb->prefix . 'js_job_categories';
+        $jobtype_tbl  = $wpdb->prefix . 'js_job_jobtypes';
+        $salary_tbl   = $wpdb->prefix . 'js_job_salaryrange';
+        $salary_type  = $wpdb->prefix . 'js_job_salaryrangetypes';
+        $currency_tbl = $wpdb->prefix . 'js_job_currencies';
+        $city_tbl     = $wpdb->prefix . 'js_job_cities';
+        $state_tbl    = $wpdb->prefix . 'js_job_states';
+        $country_tbl  = $wpdb->prefix . 'js_job_countries';
+        $exp_tbl      = $wpdb->prefix . 'js_job_experiences';
+
+        $query = $wpdb->prepare(
+            "SELECT resume.id, CONCAT(resume.alias,'-',resume.id) AS aliasid, resume.first_name, resume.last_name,
+                    resume.application_title, resume.email_address, category.cat_title,
+                    exp.title AS total_experience, resume.created, jobtype.title AS jobtypetitle,
+                    resume.photo, salary_from.rangestart, salary_to.rangeend, rangetype.title AS rangetype,
+                          currency.symbol, city.cityName AS cityname, state.name AS statename,
+                          country.name AS countryname
+             FROM {$resume_table} AS resume
+             LEFT JOIN {$cat_table} AS category ON category.id = resume.job_category
+             LEFT JOIN {$jobtype_tbl} AS jobtype ON jobtype.id = resume.jobtype
+             LEFT JOIN {$salary_tbl} AS salary_from ON salary_from.id = resume.jobsalaryrangestart
+             LEFT JOIN {$salary_tbl} AS salary_to ON salary_to.id = resume.jobsalaryrangeend
+             LEFT JOIN {$salary_type} AS rangetype ON rangetype.id = resume.jobsalaryrangetype
+             LEFT JOIN {$currency_tbl} AS currency ON currency.id = resume.currencyid
+             LEFT JOIN (
+                 SELECT resumeid, MAX(address_city) AS address_city
+                 FROM {$wpdb->prefix}js_job_resumeaddresses
+                 GROUP BY resumeid
+             ) AS address ON address.resumeid = resume.id
+             LEFT JOIN {$city_tbl} AS city ON city.id = address.address_city
+             LEFT JOIN {$state_tbl} AS state ON state.id = city.stateid
+             LEFT JOIN {$country_tbl} AS country ON country.id = city.countryid
+             LEFT JOIN {$exp_tbl} AS exp ON exp.id = resume.experienceid
+             WHERE resume.id IN ({$placeholders})
+             GROUP BY resume.id",
+            ...$ids
+        );
+
+        $rows = $wpdb->get_results( $query, ARRAY_A );
+
+        if ( empty( $rows ) ) {
+            return [];
+        }
+
+        $common_model   = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'common' ) : null;
+        $config_model   = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'configuration' ) : null;
+        $data_directory = $config_model ? $config_model->getConfigurationByConfigName( 'data_directory' ) : '';
+        $uploads        = wp_get_upload_dir();
+        $default_avatar = defined( 'JSJOBS_PLUGIN_URL' ) ? JSJOBS_PLUGIN_URL . 'includes/images/users.png' : '';
+        $resume_page_id = class_exists( 'jsjobs' ) ? jsjobs::getPageid() : 0;
+
+        $indexed = [];
+
+        foreach ( $rows as $row ) {
+            $salary = '';
+            $location = '';
+
+            if ( $common_model ) {
+                $salary   = $common_model->getSalaryRangeView( $row['symbol'] ?? '', $row['rangestart'] ?? '', $row['rangeend'] ?? '', $row['rangetype'] ?? '' );
+                $location = $common_model->getLocationForView( $row['cityname'] ?? '', $row['statename'] ?? '', $row['countryname'] ?? '' );
+            } else {
+                $location = implode( ', ', array_filter( [ $row['cityname'] ?? '', $row['statename'] ?? '', $row['countryname'] ?? '' ] ) );
+            }
+
+            $photo_url = $default_avatar;
+
+            if ( ! empty( $row['photo'] ) && ! empty( $uploads['baseurl'] ) && ! empty( $data_directory ) ) {
+                $photo_url = trailingslashit( $uploads['baseurl'] ) . $data_directory . '/data/jobseeker/resume_' . $row['id'] . '/photo/' . $row['photo'];
+            }
+
+            $view_url = '';
+
+            if ( class_exists( 'jsjobs' ) ) {
+                $view_url = jsjobs::makeUrl( [
+                    'jsjobsme'    => 'resume',
+                    'jsjobslt'    => 'viewresume',
+                    'jsjobsid'    => $row['aliasid'],
+                    'jsjobspageid'=> $resume_page_id,
+                ] );
+            }
+
+            $indexed[ (int) $row['id'] ] = [
+                'id'                => (int) $row['id'],
+                'alias_id'          => $row['aliasid'],
+                'first_name'        => $row['first_name'],
+                'last_name'         => $row['last_name'],
+                'job_type'          => $row['jobtypetitle'],
+                'application_title' => $row['application_title'],
+                'email'             => $row['email_address'],
+                'category'          => $row['cat_title'],
+                'experience'        => $row['total_experience'],
+                'salary'            => $salary,
+                'location'          => $location,
+                'photo_url'         => $photo_url,
+                'view_url'          => $view_url,
+                'created_at'        => $row['created'],
+            ];
+        }
+
+        return $indexed;
     }
 
     public static function list_cvs( array $args = [] ): array {

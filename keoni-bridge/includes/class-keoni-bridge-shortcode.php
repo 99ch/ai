@@ -50,13 +50,19 @@ class Keoni_Bridge_Shortcode {
         wp_enqueue_style( $this->style_handle );
         wp_enqueue_script( $this->script_handle );
 
-        $items      = $data['items'];
-        $cv_map     = Keoni_Bridge_Repository::get_cvs_by_ids( wp_list_pluck( $items, 'cv_id' ) );
+        $items    = $data['items'];
+        $cv_ids   = wp_list_pluck( $items, 'cv_id' );
+        $cv_map   = Keoni_Bridge_Repository::get_cvs_by_ids( $cv_ids );
+        $emails   = array_filter( array_map( static function ( $cv ) {
+            return $cv['candidate_email'] ?? '';
+        }, array_values( $cv_map ) ) );
+        $resume_map = Keoni_Bridge_Repository::get_resumes_by_emails( $emails );
+        $resume_map_by_id = Keoni_Bridge_Repository::get_resumes_by_ids( $cv_ids );
         $total      = intval( $data['total'] ?? count( $items ) );
         $limit      = intval( $data['limit'] ?? $atts['limit'] );
         $offset     = intval( $data['offset'] ?? $atts['offset'] );
         $has_more   = ( $offset + $limit ) < $total;
-        $cards_html = self::render_cards_html( $items, $cv_map );
+        $cards_html = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id );
         $nonce      = wp_create_nonce( 'keoni_matching' );
 
         ob_start();
@@ -98,68 +104,181 @@ class Keoni_Bridge_Shortcode {
         ] );
     }
 
-    public static function render_cards_html( array $items, array $cv_map ): string {
+    public static function render_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [] ): string {
+        $default_avatar = defined( 'JSJOBS_PLUGIN_URL' ) ? JSJOBS_PLUGIN_URL . 'includes/images/users.png' : '';
+        $date_format    = get_option( 'date_format', 'Y-m-d' );
+
         ob_start();
 
         foreach ( $items as $item ) {
             $cv_id       = (int) $item['cv_id'];
-            $cv          = $cv_map[ $cv_id ] ?? null;
+            $cv          = $cv_map[ $cv_id ] ?? [];
             $score       = floatval( $item['score'] );
             $score_class = self::get_score_class( $score );
-            $name        = $cv['application_title'] ?? sprintf( __( 'Candidat #%d', 'keoni-bridge' ), $cv_id );
-            $email       = $cv['candidate_email'] ?? '';
             $keywords    = (array) ( $item['keywords'] ?? [] );
             $strengths   = (array) ( $item['strengths'] ?? [] );
             $weaknesses  = (array) ( $item['weaknesses'] ?? [] );
-            $resume_url  = $cv ? self::build_cv_url( $cv ) : '';
+            $resume_url  = self::build_cv_url( $cv );
+            $email_raw   = $cv['candidate_email'] ?? '';
+            $resume_key  = strtolower( $email_raw );
+            $resume      = $resume_key && isset( $resume_map[ $resume_key ] ) ? $resume_map[ $resume_key ] : null;
+
+            if ( ! $resume && $cv_id && isset( $resume_map_by_id[ $cv_id ] ) ) {
+                $resume = $resume_map_by_id[ $cv_id ];
+            }
+
+            $name = $resume
+                ? trim( implode( ' ', array_filter( [ $resume['first_name'] ?? '', $resume['last_name'] ?? '' ] ) ) )
+                : '';
+
+            if ( '' === $name ) {
+                $name = $cv['application_title'] ?? sprintf( __( 'Candidat #%d', 'keoni-bridge' ), $cv_id );
+            }
+
+            $job_type          = $resume['job_type'] ?? '';
+            $application_title = $resume['application_title'] ?? ( $cv['application_title'] ?? '' );
+            $category          = $resume['category'] ?? '';
+            $experience        = $resume['experience'] ?? '';
+            $salary            = $resume['salary'] ?? '';
+            $location          = $resume['location'] ?? '';
+            $photo             = $resume['photo_url'] ?? $default_avatar;
+            $profile_url       = $resume['view_url'] ?? '';
+            $created_at        = '';
+
+            if ( ! empty( $resume['created_at'] ) ) {
+                $timestamp  = strtotime( $resume['created_at'] );
+                $created_at = $timestamp ? date_i18n( $date_format, $timestamp ) : '';
+            }
+
+            $rank_label = '';
+            if ( isset( $item['extra']['rank'] ) ) {
+                $rank_label = sprintf( __( 'Rang #%d', 'keoni-bridge' ), (int) $item['extra']['rank'] );
+            }
             ?>
-            <article class="keoni-matching__card">
-                <header class="keoni-matching__header">
-                    <h3 class="keoni-matching__name"><?php echo esc_html( $name ); ?></h3>
-                    <span class="keoni-matching__score <?php echo esc_attr( $score_class ); ?>">
-                        <?php echo esc_html( number_format_i18n( $score, 1 ) ); ?>
-                    </span>
-                </header>
-                <div class="keoni-matching__meta">
-                    <span>#<?php echo esc_html( $cv_id ); ?></span>
-                    <?php if ( $email ) : ?>
-                        <span><?php echo esc_html( $email ); ?></span>
-                    <?php endif; ?>
+            <article class="keoni-matching__card keoni-matching__card--resume">
+                <div class="keoni-matching__avatar">
+                    <img src="<?php echo esc_url( $photo ); ?>" alt="<?php echo esc_attr( $name ); ?>" />
                 </div>
-                <div class="keoni-matching__section">
-                    <strong><?php esc_html_e( 'Forces', 'keoni-bridge' ); ?></strong>
-                    <p><?php echo esc_html( self::format_list( $strengths ) ); ?></p>
-                </div>
-                <?php if ( ! empty( $weaknesses ) ) : ?>
-                    <div class="keoni-matching__section">
-                        <strong><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></strong>
-                        <p><?php echo esc_html( self::format_list( $weaknesses ) ); ?></p>
+                <div class="keoni-matching__body">
+                    <div class="keoni-matching__resume-header">
+                        <div>
+                            <h3 class="keoni-matching__resume-name"><?php echo esc_html( $name ); ?></h3>
+                            <?php if ( $job_type ) : ?>
+                                <div class="keoni-matching__resume-role"><?php echo esc_html( $job_type ); ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <div class="keoni-matching__scorebox">
+                            <span class="keoni-matching__score <?php echo esc_attr( $score_class ); ?>"><?php echo esc_html( number_format_i18n( $score, 1 ) ); ?></span>
+                            <small><?php esc_html_e( 'Score IA', 'keoni-bridge' ); ?></small>
+                            <?php if ( $rank_label ) : ?>
+                                <small class="keoni-matching__score-rank"><?php echo esc_html( $rank_label ); ?></small>
+                            <?php endif; ?>
+                        </div>
                     </div>
-                <?php endif; ?>
-                <div class="keoni-matching__section">
-                    <strong><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></strong>
-                    <div class="keoni-matching__keywords">
+
+                    <div class="keoni-matching__resume-meta">
+                        <?php if ( $application_title ) : ?>
+                            <span class="keoni-matching__resume-meta-item">
+                                <strong><?php esc_html_e( 'Titre', 'keoni-bridge' ); ?></strong>
+                                <span><?php echo esc_html( $application_title ); ?></span>
+                            </span>
+                        <?php endif; ?>
+                        <?php if ( $category ) : ?>
+                            <span class="keoni-matching__resume-meta-item">
+                                <strong><?php esc_html_e( 'Catégorie', 'keoni-bridge' ); ?></strong>
+                                <span><?php echo esc_html( $category ); ?></span>
+                            </span>
+                        <?php endif; ?>
+                        <?php if ( $salary ) : ?>
+                            <span class="keoni-matching__resume-meta-item">
+                                <strong><?php esc_html_e( 'Salaire', 'keoni-bridge' ); ?></strong>
+                                <span><?php echo esc_html( $salary ); ?></span>
+                            </span>
+                        <?php endif; ?>
+                        <?php if ( $experience ) : ?>
+                            <span class="keoni-matching__resume-meta-item">
+                                <strong><?php esc_html_e( 'Expérience', 'keoni-bridge' ); ?></strong>
+                                <span><?php echo esc_html( $experience ); ?></span>
+                            </span>
+                        <?php endif; ?>
+                        <?php if ( $location ) : ?>
+                            <span class="keoni-matching__resume-meta-item">
+                                <strong><?php esc_html_e( 'Localisation', 'keoni-bridge' ); ?></strong>
+                                <span><?php echo esc_html( $location ); ?></span>
+                            </span>
+                        <?php endif; ?>
+                        <?php if ( $email_raw ) : ?>
+                            <span class="keoni-matching__resume-meta-item">
+                                <strong><?php esc_html_e( 'Email', 'keoni-bridge' ); ?></strong>
+                                <span><a href="mailto:<?php echo esc_attr( $email_raw ); ?>"><?php echo esc_html( $email_raw ); ?></a></span>
+                            </span>
+                        <?php endif; ?>
+                        <?php if ( $created_at ) : ?>
+                            <span class="keoni-matching__resume-meta-item">
+                                <strong><?php esc_html_e( 'Créé le', 'keoni-bridge' ); ?></strong>
+                                <span><?php echo esc_html( $created_at ); ?></span>
+                            </span>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="keoni-matching__section-grid">
+                        <div class="keoni-matching__section">
+                            <strong><?php esc_html_e( 'Forces', 'keoni-bridge' ); ?></strong>
+                            <?php if ( ! empty( $strengths ) ) : ?>
+                                <ul class="keoni-matching__list">
+                                    <?php foreach ( $strengths as $strength ) : ?>
+                                        <li><?php echo esc_html( $strength ); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php else : ?>
+                                <p><?php esc_html_e( 'Aucune force détectée.', 'keoni-bridge' ); ?></p>
+                            <?php endif; ?>
+                        </div>
+                        <div class="keoni-matching__section">
+                            <strong><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></strong>
+                            <?php if ( ! empty( $weaknesses ) ) : ?>
+                                <ul class="keoni-matching__list">
+                                    <?php foreach ( $weaknesses as $weakness ) : ?>
+                                        <li><?php echo esc_html( $weakness ); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php else : ?>
+                                <p><?php esc_html_e( 'Aucun signal particulier.', 'keoni-bridge' ); ?></p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+
+                    <div class="keoni-matching__section">
+                        <strong><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></strong>
                         <?php if ( empty( $keywords ) ) : ?>
-                            <span><?php esc_html_e( 'Aucun', 'keoni-bridge' ); ?></span>
+                            <p><?php esc_html_e( 'Aucun mot-clé surligné.', 'keoni-bridge' ); ?></p>
                         <?php else : ?>
-                            <?php foreach ( $keywords as $keyword ) : ?>
-                                <span class="keoni-matching__keyword"><?php echo esc_html( $keyword ); ?></span>
-                            <?php endforeach; ?>
+                            <div class="keoni-matching__resume-keywords">
+                                <?php foreach ( $keywords as $keyword ) : ?>
+                                    <span><?php echo esc_html( $keyword ); ?></span>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <div class="keoni-matching__resume-actions keoni-matching__actions">
+                        <?php if ( $profile_url ) : ?>
+                            <a class="keoni-matching__btn keoni-matching__btn--ghost keoni-matching__btn--view-resume" href="<?php echo esc_url( $profile_url ); ?>" target="_blank" rel="noopener">
+                                <?php esc_html_e( 'View Resume', 'keoni-bridge' ); ?>
+                            </a>
+                        <?php endif; ?>
+                        <?php if ( $resume_url ) : ?>
+                            <a class="keoni-matching__btn keoni-matching__btn--ghost" href="<?php echo esc_url( $resume_url ); ?>" target="_blank" rel="noopener">
+                                <?php esc_html_e( 'Télécharger le CV', 'keoni-bridge' ); ?>
+                            </a>
+                        <?php endif; ?>
+                        <?php if ( $email_raw ) : ?>
+                            <a class="keoni-matching__btn keoni-matching__btn--primary" href="mailto:<?php echo esc_attr( $email_raw ); ?>">
+                                <?php esc_html_e( 'Contacter', 'keoni-bridge' ); ?>
+                            </a>
                         <?php endif; ?>
                     </div>
                 </div>
-                <footer class="keoni-matching__actions">
-                    <?php if ( $email ) : ?>
-                        <a class="keoni-matching__btn keoni-matching__btn--primary" href="mailto:<?php echo esc_attr( $email ); ?>">
-                            <?php esc_html_e( 'Contacter', 'keoni-bridge' ); ?>
-                        </a>
-                    <?php endif; ?>
-                    <?php if ( $resume_url ) : ?>
-                        <a class="keoni-matching__btn keoni-matching__btn--ghost" href="<?php echo esc_url( $resume_url ); ?>" target="_blank" rel="noopener">
-                            <?php esc_html_e( 'Voir le CV', 'keoni-bridge' ); ?>
-                        </a>
-                    <?php endif; ?>
-                </footer>
             </article>
             <?php
         }
@@ -188,8 +307,14 @@ class Keoni_Bridge_Shortcode {
             wp_send_json_success( $results );
         }
 
-        $cv_map = Keoni_Bridge_Repository::get_cvs_by_ids( wp_list_pluck( $results['items'], 'cv_id' ) );
-        $results['html']     = self::render_cards_html( $results['items'], $cv_map );
+        $cv_ids = wp_list_pluck( $results['items'], 'cv_id' );
+        $cv_map = Keoni_Bridge_Repository::get_cvs_by_ids( $cv_ids );
+        $emails = array_filter( array_map( static function ( $cv ) {
+            return $cv['candidate_email'] ?? '';
+        }, array_values( $cv_map ) ) );
+        $resume_map           = Keoni_Bridge_Repository::get_resumes_by_emails( $emails );
+        $resume_map_by_id     = Keoni_Bridge_Repository::get_resumes_by_ids( $cv_ids );
+        $results['html']      = self::render_cards_html( $results['items'], $cv_map, $resume_map, $resume_map_by_id );
         $results['next_offset'] = min( $results['offset'] + $results['limit'], $results['total'] );
         $results['has_more']    = $results['next_offset'] < $results['total'];
 
