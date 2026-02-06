@@ -92,7 +92,10 @@ class Keoni_Bridge_Hooks {
             wp_send_json_error( [ 'message' => __( 'Impossible de contacter le webhook IA.', 'keoni-bridge' ) ], 500 );
         }
 
-        wp_send_json_success( [ 'message' => __( 'Matching IA lancé pour cette offre.', 'keoni-bridge' ) ] );
+        wp_send_json_success( [
+            'message'    => __( 'Matching IA lancé pour cette offre.', 'keoni-bridge' ),
+            'started_at' => current_time( 'timestamp', true ),
+        ] );
     }
 
     public function ajax_matching_status(): void {

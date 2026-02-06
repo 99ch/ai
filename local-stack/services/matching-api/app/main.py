@@ -68,6 +68,7 @@ class Settings:
     location_weight: float = float(os.getenv("MATCHING_LOCATION_WEIGHT", "5"))
     embed_batch_size: int = int(os.getenv("EMBED_BATCH_SIZE", "32"))
     data_dir: Path = Path(os.getenv("DATA_DIR", "/data/cv_raw"))
+    require_signal: bool = os.getenv("MATCHING_REQUIRE_SIGNAL", "true").lower() == "true"
 
 
 settings = Settings()
@@ -336,6 +337,10 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
     )
 
 
+def has_matching_signal(keyword_hits: Sequence[str], title_overlap: set[str]) -> bool:
+    return bool(keyword_hits) or bool(title_overlap)
+
+
 @app.get("/health")
 def healthcheck() -> dict:
     return {
@@ -372,9 +377,14 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
             continue
         if sim < settings.min_similarity:
             continue
-        scored_items.append(build_score(job, usable[idx], sim, rank))
+        cv = usable[idx]
+        keyword_hits = job.keyword_set.intersection(cv.keyword_set)
+        title_overlap = job.tokens.intersection(cv.title_tokens)
+        if settings.require_signal and not has_matching_signal(keyword_hits, title_overlap):
+            continue
+        scored_items.append(build_score(job, cv, sim, rank))
 
-    if not scored_items and len(indices):
+    if not scored_items and len(indices) and not settings.require_signal:
         idx = int(indices[0])
         if idx >= 0:
             scored_items.append(build_score(job, usable[idx], float(similarities[0]), 0))
