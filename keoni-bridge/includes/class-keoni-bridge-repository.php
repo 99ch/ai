@@ -142,6 +142,14 @@ class Keoni_Bridge_Repository {
         ];
     }
 
+    public static function delete_matching_results( int $job_id ): int {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'cv_matching_results';
+
+        return (int) $wpdb->delete( $table, [ 'job_id' => $job_id ] );
+    }
+
     public static function get_resumes_by_emails( array $emails ): array {
         global $wpdb;
 

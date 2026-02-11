@@ -55,6 +55,27 @@ DEFAULT_STOPWORDS = {
     "our",
     "your",
     "their",
+    "developpeur",
+    "développeur",
+    "developer",
+    "dev",
+    "full",
+    "stack",
+    "fullstack",
+    "senior",
+    "junior",
+    "consultant",
+    "chef",
+    "projet",
+    "project",
+    "manager",
+    "ingenieur",
+    "ingénieur",
+    "analyste",
+    "architecte",
+    "technicien",
+    "administrateur",
+    "responsable",
 }
 
 
@@ -63,12 +84,16 @@ class Settings:
     sentence_model: str = os.getenv("SENTENCE_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     top_k: int = int(os.getenv("MATCHING_TOP_K", "200"))
     min_similarity: float = float(os.getenv("MATCHING_MIN_SIMILARITY", "0.2"))
-    keyword_weight: float = float(os.getenv("MATCHING_KEYWORD_WEIGHT", "5"))
+    keyword_weight: float = float(os.getenv("MATCHING_KEYWORD_WEIGHT", "12"))
+    keyword_boost_weight: float = float(os.getenv("MATCHING_KEYWORD_BOOST_WEIGHT", "8"))
+    keyword_boost_threshold: int = int(os.getenv("MATCHING_KEYWORD_BOOST_THRESHOLD", "2"))
     title_weight: float = float(os.getenv("MATCHING_TITLE_WEIGHT", "10"))
     location_weight: float = float(os.getenv("MATCHING_LOCATION_WEIGHT", "5"))
     embed_batch_size: int = int(os.getenv("EMBED_BATCH_SIZE", "32"))
     data_dir: Path = Path(os.getenv("DATA_DIR", "/data/cv_raw"))
     require_signal: bool = os.getenv("MATCHING_REQUIRE_SIGNAL", "true").lower() == "true"
+    min_keyword_hits: int = int(os.getenv("MATCHING_MIN_KEYWORD_HITS", "1"))
+    exact_title_weight: float = float(os.getenv("MATCHING_EXACT_TITLE_WEIGHT", "25"))
 
 
 settings = Settings()
@@ -127,10 +152,12 @@ class ScoreResponse(BaseModel):
 @dataclass(slots=True)
 class PreparedJob:
     text: str
+    title: str
     tokens: set[str]
     keywords: List[str]
     keyword_set: set[str]
     location: str
+    title_tokens: set[str]
 
 
 @dataclass(slots=True)
@@ -161,6 +188,19 @@ def get_model() -> SentenceTransformer:
 
 def normalize_whitespace(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
+
+
+def normalize_title(value: str) -> str:
+    cleaned = normalize_whitespace(value.lower())
+    cleaned = re.sub(r"[^a-z0-9à-öø-ÿ\s]", " ", cleaned)
+    return normalize_whitespace(cleaned)
+
+
+def title_tokens(value: str) -> set[str]:
+    normalized = normalize_title(value)
+    if not normalized:
+        return set()
+    return set(normalized.split())
 
 
 def tokenize(text: str) -> set[str]:
@@ -255,13 +295,27 @@ def assemble_cv_text(cv: CvPayload) -> str:
 
 def prepare_job(job: JobPayload) -> PreparedJob:
     meta = job.meta or {}
-    keywords = parse_keywords(job.keywords) + parse_keywords(meta.get("skills"))
+    keywords = (
+        parse_keywords(job.keywords)
+        + parse_keywords(meta.get("skills"))
+        + parse_keywords(job.description)
+        + parse_keywords(job.content)
+        + parse_keywords(job.excerpt)
+    )
     keywords = list(dict.fromkeys(keywords))
     text_parts = [job.title, job.description, job.content, job.excerpt, " ".join(keywords), meta.get("experience", "")]
     text = normalize_whitespace(" ".join(filter(None, text_parts)))
     location = (job.location or meta.get("location") or "").lower()
     tokens = tokenize(f"{job.title} {job.description}")
-    return PreparedJob(text=text, tokens=tokens, keywords=keywords, keyword_set=set(keywords), location=location)
+    return PreparedJob(
+        text=text,
+        title=job.title,
+        tokens=tokens,
+        keywords=keywords,
+        keyword_set=set(keywords),
+        location=location,
+        title_tokens=title_tokens(job.title),
+    )
 
 
 def prepare_cv(cv: CvPayload) -> PreparedCv:
@@ -300,8 +354,17 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
     else:
         weaknesses.append("Aucun mot-clé commun identifié")
 
-    title_overlap = job.tokens.intersection(cv.title_tokens)
-    if title_overlap:
+    title_overlap = job.title_tokens.intersection(cv.title_tokens)
+    job_title_norm = normalize_title(job.title)
+    cv_title_raw = cv.payload.application_title or cv.payload.title or ""
+    cv_title_norm = normalize_title(cv_title_raw)
+    exact_title_match = bool(job_title_norm and cv_title_norm and job_title_norm == cv_title_norm)
+    strong_title_match = bool(job.title_tokens and job.title_tokens.issubset(title_tokens(cv_title_raw)))
+    if exact_title_match:
+        strengths.append("Titre identique")
+    elif strong_title_match:
+        strengths.append("Titre très proche")
+    elif title_overlap:
         strengths.append(f"Titre proche ({', '.join(sorted(title_overlap)[:3])})")
     else:
         weaknesses.append("Titre éloigné du besoin")
@@ -316,7 +379,13 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
 
     base_score = max(0.0, similarity) * 70
     score = base_score + len(keyword_hits) * settings.keyword_weight
-    if title_overlap:
+    if len(keyword_hits) >= settings.keyword_boost_threshold:
+        score += settings.keyword_boost_weight
+    if exact_title_match:
+        score += settings.exact_title_weight
+    elif strong_title_match:
+        score += settings.title_weight + 5
+    elif title_overlap:
         score += settings.title_weight
     score += location_bonus
     score = float(max(0.0, min(100.0, score)))
@@ -325,6 +394,8 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
         "vector_similarity": round(float(similarity), 4),
         "keyword_hits": keyword_hits,
         "rank": rank + 1,
+        "exact_title_match": exact_title_match,
+        "strong_title_match": strong_title_match,
     }
 
     return ScoreItem(
@@ -363,6 +434,24 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
     prepared_cvs = [prepare_cv(cv) for cv in payload.cvs]
     usable = [cv for cv in prepared_cvs if cv.text]
 
+    if usable:
+        job_title_norm = normalize_title(payload.job.title)
+        exact_title = [
+            cv for cv in usable
+            if job_title_norm
+            and normalize_title(cv.payload.application_title or cv.payload.title or "") == job_title_norm
+        ]
+        if exact_title:
+            usable = exact_title
+        else:
+            strong_title = [
+                cv for cv in usable
+                if job.title_tokens
+                and job.title_tokens.issubset(title_tokens(cv.payload.application_title or cv.payload.title or ""))
+            ]
+            if strong_title:
+                usable = strong_title
+
     if not usable:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Aucun texte exploitable pour les CV")
 
@@ -372,6 +461,8 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
     indices, similarities = search_top_matches(job_embedding, cv_embeddings, settings.top_k)
 
     scored_items: List[ScoreItem] = []
+    exact_title_present = False
+    strong_title_present = False
     for rank, (idx, sim) in enumerate(zip(indices, similarities)):
         if idx < 0:
             continue
@@ -379,10 +470,25 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
             continue
         cv = usable[idx]
         keyword_hits = job.keyword_set.intersection(cv.keyword_set)
-        title_overlap = job.tokens.intersection(cv.title_tokens)
+        title_overlap = job.title_tokens.intersection(cv.title_tokens)
+        job_title_norm = normalize_title(payload.job.title)
+        cv_title_raw = cv.payload.application_title or cv.payload.title or ""
+        cv_title_norm = normalize_title(cv_title_raw)
+        if job_title_norm and cv_title_norm and job_title_norm == cv_title_norm:
+            exact_title_present = True
+        if job.title_tokens and job.title_tokens.issubset(title_tokens(cv_title_raw)):
+            strong_title_present = True
+        if job.keyword_set and len(keyword_hits) < settings.min_keyword_hits:
+            continue
         if settings.require_signal and not has_matching_signal(keyword_hits, title_overlap):
             continue
         scored_items.append(build_score(job, cv, sim, rank))
+
+    if exact_title_present:
+        scored_items = [item for item in scored_items if item.extra.get("exact_title_match")]
+
+    if not exact_title_present and strong_title_present:
+        scored_items = [item for item in scored_items if item.extra.get("strong_title_match")]
 
     if not scored_items and len(indices) and not settings.require_signal:
         idx = int(indices[0])

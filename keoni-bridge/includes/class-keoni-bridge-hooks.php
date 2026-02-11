@@ -18,6 +18,7 @@ class Keoni_Bridge_Hooks {
 
         add_action( 'wp_ajax_keoni_bridge_run_matching', [ $this, 'ajax_run_matching' ] );
         add_action( 'wp_ajax_keoni_bridge_matching_status', [ $this, 'ajax_matching_status' ] );
+        add_action( 'wp_ajax_keoni_bridge_reset_matching', [ $this, 'ajax_reset_matching' ] );
 
         if ( ! wp_next_scheduled( 'keoni_bridge_scan_jobs' ) ) {
             wp_schedule_event( time() + 60, 'five_minutes', 'keoni_bridge_scan_jobs' );
@@ -126,6 +127,27 @@ class Keoni_Bridge_Hooks {
             'complete'     => $complete,
             'total'        => $total,
             'last_updated' => $last_updated,
+        ] );
+    }
+
+    public function ajax_reset_matching(): void {
+        check_ajax_referer( 'keoni_bridge_reset_matching', 'nonce' );
+
+        $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
+
+        if ( $job_id <= 0 ) {
+            wp_send_json_error( [ 'message' => __( 'Job invalide.', 'keoni-bridge' ) ], 400 );
+        }
+
+        if ( ! $this->user_can_manage_job_matching( $job_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
+        }
+
+        $deleted = Keoni_Bridge_Repository::delete_matching_results( $job_id );
+
+        wp_send_json_success( [
+            'message' => __( 'Résultats IA réinitialisés.', 'keoni-bridge' ),
+            'deleted' => $deleted,
         ] );
     }
 

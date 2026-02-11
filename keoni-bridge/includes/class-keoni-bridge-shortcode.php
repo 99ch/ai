@@ -62,8 +62,9 @@ class Keoni_Bridge_Shortcode {
         $limit      = intval( $data['limit'] ?? $atts['limit'] );
         $offset     = intval( $data['offset'] ?? $atts['offset'] );
         $has_more   = ( $offset + $limit ) < $total;
-        $cards_html = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id );
-        $nonce      = wp_create_nonce( 'keoni_matching' );
+        $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id );
+        $nonce       = wp_create_nonce( 'keoni_matching' );
+        $reset_nonce = wp_create_nonce( 'keoni_bridge_reset_matching' );
 
         ob_start();
         ?>
@@ -71,8 +72,18 @@ class Keoni_Bridge_Shortcode {
         <div class="keoni-matching">
             <?php echo $cards_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
         </div>
-            <?php if ( $has_more ) : ?>
-                <div class="keoni-matching__actions">
+            <div class="keoni-matching__actions">
+                <button type="button"
+                        class="keoni-matching__btn keoni-matching__btn--ghost"
+                        data-keoni-reset
+                        data-job-id="<?php echo esc_attr( $job_id ); ?>"
+                        data-nonce="<?php echo esc_attr( $reset_nonce ); ?>"
+                        data-confirm-text="<?php esc_attr_e( 'Supprimer tous les résultats IA pour cette offre ?', 'keoni-bridge' ); ?>"
+                        data-default-text="<?php esc_attr_e( 'Réinitialiser les résultats IA', 'keoni-bridge' ); ?>"
+                        data-loading-text="<?php esc_attr_e( 'Réinitialisation...', 'keoni-bridge' ); ?>">
+                    <?php esc_html_e( 'Réinitialiser les résultats IA', 'keoni-bridge' ); ?>
+                </button>
+                <?php if ( $has_more ) : ?>
                     <button type="button"
                             class="keoni-matching__btn keoni-matching__btn--ghost"
                             data-keoni-load-more
@@ -85,8 +96,8 @@ class Keoni_Bridge_Shortcode {
                             data-loading-text="<?php esc_attr_e( 'Chargement...', 'keoni-bridge' ); ?>">
                         <?php esc_html_e( 'Afficher plus', 'keoni-bridge' ); ?>
                     </button>
-                </div>
-            <?php endif; ?>
+                <?php endif; ?>
+            </div>
         </div>
         <?php
         return ob_get_clean();
