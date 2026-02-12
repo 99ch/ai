@@ -31,6 +31,7 @@ services:
       MATCHING_API_KEY: ${MATCHING_API_KEY}
       MODEL_CACHE: /models
       DATA_DIR: /data/cv_raw
+      MATCHING_MIN_TITLE_HITS: "3"
       POSTGRES_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       TZ: ${TIMEZONE}
     depends_on:

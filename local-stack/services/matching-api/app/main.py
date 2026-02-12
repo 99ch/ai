@@ -5,6 +5,8 @@ import os
 import re
 import secrets
 import time
+import unicodedata
+from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -93,6 +95,7 @@ class Settings:
     data_dir: Path = Path(os.getenv("DATA_DIR", "/data/cv_raw"))
     require_signal: bool = os.getenv("MATCHING_REQUIRE_SIGNAL", "true").lower() == "true"
     min_keyword_hits: int = int(os.getenv("MATCHING_MIN_KEYWORD_HITS", "1"))
+    min_title_hits: int = int(os.getenv("MATCHING_MIN_TITLE_HITS", "2"))
     exact_title_weight: float = float(os.getenv("MATCHING_EXACT_TITLE_WEIGHT", "25"))
 
 
@@ -192,7 +195,11 @@ def normalize_whitespace(value: str) -> str:
 
 def normalize_title(value: str) -> str:
     cleaned = normalize_whitespace(value.lower())
-    cleaned = re.sub(r"[^a-z0-9à-öø-ÿ\s]", " ", cleaned)
+    cleaned = "".join(
+        char for char in unicodedata.normalize("NFKD", cleaned)
+        if not unicodedata.combining(char)
+    )
+    cleaned = re.sub(r"[^a-z0-9\s]", " ", cleaned)
     return normalize_whitespace(cleaned)
 
 
@@ -201,6 +208,14 @@ def title_tokens(value: str) -> set[str]:
     if not normalized:
         return set()
     return set(normalized.split())
+
+
+def is_title_equivalent(job_title_norm: str, cv_title_norm: str) -> bool:
+    if not job_title_norm or not cv_title_norm:
+        return False
+    if job_title_norm == cv_title_norm:
+        return True
+    return job_title_norm in cv_title_norm
 
 
 def tokenize(text: str) -> set[str]:
@@ -268,7 +283,7 @@ def text_from_file(path: Path) -> str:
 
 def assemble_cv_text(cv: CvPayload) -> str:
     parts: List[str] = []
-    for value in [cv.text_content, cv.resume, cv.skills]:
+    for value in [cv.application_title, cv.title, cv.text_content, cv.resume, cv.skills, cv.keywords]:
         if value:
             parts.append(value)
 
@@ -321,11 +336,11 @@ def prepare_job(job: JobPayload) -> PreparedJob:
 def prepare_cv(cv: CvPayload) -> PreparedCv:
     meta = cv.metadata or {}
     text = assemble_cv_text(cv)
-    title_tokens = tokenize(" ".join(filter(None, [cv.application_title, cv.title])))
+    title_tokens_value = title_tokens(" ".join(filter(None, [cv.application_title, cv.title])))
     keywords = parse_keywords(cv.keywords) + parse_keywords(meta.get("keywords")) + parse_keywords(cv.skills)
     keywords = list(dict.fromkeys(keywords))
     location = (cv.location or meta.get("location") or "").lower()
-    return PreparedCv(payload=cv, text=text, title_tokens=title_tokens, keywords=keywords, keyword_set=set(keywords), location=location)
+    return PreparedCv(payload=cv, text=text, title_tokens=title_tokens_value, keywords=keywords, keyword_set=set(keywords), location=location)
 
 
 def encode_texts(texts: Sequence[str]) -> np.ndarray:
@@ -358,7 +373,7 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
     job_title_norm = normalize_title(job.title)
     cv_title_raw = cv.payload.application_title or cv.payload.title or ""
     cv_title_norm = normalize_title(cv_title_raw)
-    exact_title_match = bool(job_title_norm and cv_title_norm and job_title_norm == cv_title_norm)
+    exact_title_match = is_title_equivalent(job_title_norm, cv_title_norm)
     strong_title_match = bool(job.title_tokens and job.title_tokens.issubset(title_tokens(cv_title_raw)))
     if exact_title_match:
         strengths.append("Titre identique")
@@ -408,8 +423,8 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
     )
 
 
-def has_matching_signal(keyword_hits: Sequence[str], title_overlap: set[str]) -> bool:
-    return bool(keyword_hits) or bool(title_overlap)
+def has_matching_signal(title_overlap: set[str], min_title_hits: int) -> bool:
+    return len(title_overlap) >= max(1, min_title_hits)
 
 
 @app.get("/health")
@@ -431,26 +446,34 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
     started = time.perf_counter()
 
     job = prepare_job(payload.job)
+    job_title_norm = normalize_title(payload.job.title)
+    logging.info("[matching] job_id=%s title=%r norm=%r", payload.job.id, payload.job.title, job_title_norm)
     prepared_cvs = [prepare_cv(cv) for cv in payload.cvs]
     usable = [cv for cv in prepared_cvs if cv.text]
-
+    logging.info("[matching] usable_cvs=%d", len(usable))
     if usable:
-        job_title_norm = normalize_title(payload.job.title)
+        title_norms = [
+            normalize_title(cv.payload.application_title or cv.payload.title or "")
+            for cv in usable
+        ]
+        exact_count = sum(1 for t in title_norms if is_title_equivalent(job_title_norm, t))
+        top_titles = Counter([t for t in title_norms if t]).most_common(5)
+        logging.info("[matching] exact_title_count=%d", exact_count)
+        logging.info("[matching] top_titles=%s", top_titles)
+
+    exact_only = False
+    if usable:
         exact_title = [
             cv for cv in usable
             if job_title_norm
-            and normalize_title(cv.payload.application_title or cv.payload.title or "") == job_title_norm
+            and is_title_equivalent(job_title_norm, normalize_title(cv.payload.application_title or cv.payload.title or ""))
         ]
         if exact_title:
             usable = exact_title
+            exact_only = True
+            logging.info("[matching] exact_title_only=%d", len(usable))
         else:
-            strong_title = [
-                cv for cv in usable
-                if job.title_tokens
-                and job.title_tokens.issubset(title_tokens(cv.payload.application_title or cv.payload.title or ""))
-            ]
-            if strong_title:
-                usable = strong_title
+            logging.info("[matching] exact_title_only=0")
 
     if not usable:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Aucun texte exploitable pour les CV")
@@ -461,8 +484,6 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
     indices, similarities = search_top_matches(job_embedding, cv_embeddings, settings.top_k)
 
     scored_items: List[ScoreItem] = []
-    exact_title_present = False
-    strong_title_present = False
     for rank, (idx, sim) in enumerate(zip(indices, similarities)):
         if idx < 0:
             continue
@@ -474,21 +495,18 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
         job_title_norm = normalize_title(payload.job.title)
         cv_title_raw = cv.payload.application_title or cv.payload.title or ""
         cv_title_norm = normalize_title(cv_title_raw)
-        if job_title_norm and cv_title_norm and job_title_norm == cv_title_norm:
-            exact_title_present = True
-        if job.title_tokens and job.title_tokens.issubset(title_tokens(cv_title_raw)):
-            strong_title_present = True
-        if job.keyword_set and len(keyword_hits) < settings.min_keyword_hits:
+        logging.debug("[matching] cv_id=%s title=%r norm=%r", cv.payload.id, cv_title_raw, cv_title_norm)
+        is_exact_title = is_title_equivalent(job_title_norm, cv_title_norm)
+        if exact_only and job_title_norm and not is_exact_title:
             continue
-        if settings.require_signal and not has_matching_signal(keyword_hits, title_overlap):
+        if (not is_exact_title) and job.keyword_set and len(keyword_hits) < settings.min_keyword_hits:
+            continue
+        if settings.require_signal and not has_matching_signal(title_overlap, settings.min_title_hits):
             continue
         scored_items.append(build_score(job, cv, sim, rank))
 
-    if exact_title_present:
+    if exact_only:
         scored_items = [item for item in scored_items if item.extra.get("exact_title_match")]
-
-    if not exact_title_present and strong_title_present:
-        scored_items = [item for item in scored_items if item.extra.get("strong_title_match")]
 
     if not scored_items and len(indices) and not settings.require_signal:
         idx = int(indices[0])

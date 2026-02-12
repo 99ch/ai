@@ -201,7 +201,7 @@ class Keoni_Bridge_Rest {
             return new WP_REST_Response( [ 'message' => 'Payload invalide', 'detail' => 'job_id manquant' ], 400 );
         }
 
-        if ( empty( $payload['results'] ) || ! is_array( $payload['results'] ) ) {
+        if ( ! array_key_exists( 'results', $payload ) || ! is_array( $payload['results'] ) ) {
             return new WP_REST_Response( [ 'message' => 'Payload invalide', 'detail' => 'results manquant ou invalide' ], 400 );
         }
 
@@ -292,9 +292,14 @@ class Keoni_Bridge_Rest {
     }
 
     private function normalize_resume( array $resume ): array {
+        $application_title = sanitize_text_field( $resume['application_title'] ?? $resume['title'] ?? $resume['job_title'] ?? '' );
+        $raw_job_title     = sanitize_text_field( $resume['job_title'] ?? '' );
+
         return [
             'id'          => absint( $resume['id'] ?? 0 ),
-            'title'       => sanitize_text_field( $resume['application_title'] ?? '' ),
+            'title'       => $application_title,
+            'application_title' => $application_title,
+            'job_title'   => $raw_job_title,
             'keywords'    => sanitize_text_field( $resume['keywords'] ?? '' ),
             'first_name'  => sanitize_text_field( $resume['first_name'] ?? '' ),
             'last_name'   => sanitize_text_field( $resume['last_name'] ?? '' ),
@@ -314,9 +319,10 @@ class Keoni_Bridge_Rest {
 
     private function build_resume_text_content( array $resume ): string {
         $base = wp_strip_all_tags( $resume['cv_text_content'] ?? '' );
+        $application_title = $resume['application_title'] ?? $resume['title'] ?? $resume['job_title'] ?? '';
 
         $extras = [
-            $resume['application_title'] ?? '',
+            $application_title,
             $resume['first_name'] ?? '',
             $resume['last_name'] ?? '',
             $resume['keywords'] ?? '',

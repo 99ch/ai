@@ -105,11 +105,15 @@ class Keoni_Bridge_Shortcode {
 
     public function register_assets(): void {
         $plugin_file = dirname( __DIR__ ) . '/keoni-bridge.php';
+        $style_path  = dirname( __DIR__ ) . '/assets/css/keoni-matching.css';
+        $script_path = dirname( __DIR__ ) . '/assets/js/keoni-matching.js';
         $style_url   = plugins_url( 'assets/css/keoni-matching.css', $plugin_file );
         $script_url  = plugins_url( 'assets/js/keoni-matching.js', $plugin_file );
+        $style_ver   = file_exists( $style_path ) ? (string) filemtime( $style_path ) : KEONI_BRIDGE_VERSION;
+        $script_ver  = file_exists( $script_path ) ? (string) filemtime( $script_path ) : KEONI_BRIDGE_VERSION;
 
-        wp_register_style( $this->style_handle, $style_url, [], KEONI_BRIDGE_VERSION );
-        wp_register_script( $this->script_handle, $script_url, [], KEONI_BRIDGE_VERSION, true );
+        wp_register_style( $this->style_handle, $style_url, [], $style_ver );
+        wp_register_script( $this->script_handle, $script_url, [], $script_ver, true );
         wp_localize_script( $this->script_handle, 'KeoniMatching', [
             'ajaxUrl' => admin_url( 'admin-ajax.php' ),
         ] );
