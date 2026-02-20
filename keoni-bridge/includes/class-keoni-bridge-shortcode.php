@@ -63,30 +63,10 @@ class Keoni_Bridge_Shortcode {
         $offset     = intval( $data['offset'] ?? $atts['offset'] );
         $has_more   = ( $offset + $limit ) < $total;
         $kpis       = Keoni_Bridge_Repository::get_matching_kpis( $job_id );
-        $date_format = get_option( 'date_format', 'Y-m-d' );
-        $time_format = get_option( 'time_format', 'H:i' );
-
-        $last_run_label = '';
-        if ( ! empty( $kpis['last_updated'] ) ) {
-            $last_ts = strtotime( (string) $kpis['last_updated'] );
-            if ( $last_ts ) {
-                $last_run_label = date_i18n( $date_format . ' ' . $time_format, $last_ts );
-            }
-        }
 
         $avg_score_label = number_format_i18n( (float) ( $kpis['avg_score'] ?? 0 ), 1 );
         $best_score_label = number_format_i18n( (float) ( $kpis['best_score'] ?? 0 ), 1 );
         $duration_label = self::format_duration_ms( $kpis['duration_ms'] ?? null );
-        $batch_size_label = ! empty( $kpis['batch_size'] )
-            ? number_format_i18n( (int) $kpis['batch_size'] )
-            : __( 'Non disponible', 'keoni-bridge' );
-        $processed_at_label = '';
-        if ( ! empty( $kpis['processed_at'] ) ) {
-            $processed_ts = strtotime( (string) $kpis['processed_at'] );
-            if ( $processed_ts ) {
-                $processed_at_label = date_i18n( $date_format . ' ' . $time_format, $processed_ts );
-            }
-        }
         $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id );
         $nonce       = wp_create_nonce( 'keoni_matching' );
         $reset_nonce = wp_create_nonce( 'keoni_bridge_reset_matching' );
@@ -112,18 +92,6 @@ class Keoni_Bridge_Shortcode {
                 <article class="keoni-matching-kpis__item">
                     <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Durée exécution', 'keoni-bridge' ); ?></span>
                     <strong class="keoni-matching-kpis__value"><?php echo esc_html( $duration_label ); ?></strong>
-                </article>
-                <article class="keoni-matching-kpis__item">
-                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Taille du batch', 'keoni-bridge' ); ?></span>
-                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $batch_size_label ); ?></strong>
-                </article>
-                <article class="keoni-matching-kpis__item keoni-matching-kpis__item--wide">
-                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Dernière exécution', 'keoni-bridge' ); ?></span>
-                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $last_run_label ?: __( 'Non disponible', 'keoni-bridge' ) ); ?></strong>
-                </article>
-                <article class="keoni-matching-kpis__item keoni-matching-kpis__item--wide">
-                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Traité à', 'keoni-bridge' ); ?></span>
-                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $processed_at_label ?: __( 'Non disponible', 'keoni-bridge' ) ); ?></strong>
                 </article>
             </div>
         </section>

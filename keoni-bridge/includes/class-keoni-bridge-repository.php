@@ -170,21 +170,22 @@ class Keoni_Bridge_Repository {
         );
 
         $duration_ms = null;
-        $batch_size = null;
-        $processed_at = '';
-        $processed_ts = 0;
-        $rows = $wpdb->get_col(
+        $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT MAX(extra) AS extra
+                "SELECT extra, updated_at
                  FROM {$table}
                  WHERE job_id = %d
-                 GROUP BY cv_id",
+                   AND extra IS NOT NULL
+                   AND extra != ''
+                 ORDER BY updated_at DESC",
                 $job_id
-            )
+            ),
+            ARRAY_A
         );
 
         if ( ! empty( $rows ) ) {
-            foreach ( $rows as $raw_extra ) {
+            foreach ( $rows as $row ) {
+                $raw_extra = $row['extra'] ?? '';
                 if ( empty( $raw_extra ) ) {
                     continue;
                 }
@@ -202,21 +203,8 @@ class Keoni_Bridge_Repository {
                 }
 
                 if ( null !== $found ) {
-                    $duration_ms = max( (int) $found, (int) ( $duration_ms ?? 0 ) );
-                }
-
-                $found_batch = self::extract_batch_size_from_extra( $extra );
-                if ( null !== $found_batch ) {
-                    $batch_size = max( (int) $found_batch, (int) ( $batch_size ?? 0 ) );
-                }
-
-                $found_processed_at = self::extract_processed_at_from_extra( $extra );
-                if ( ! empty( $found_processed_at ) ) {
-                    $candidate_ts = strtotime( $found_processed_at );
-                    if ( $candidate_ts && $candidate_ts > $processed_ts ) {
-                        $processed_ts = $candidate_ts;
-                        $processed_at = $found_processed_at;
-                    }
+                    $duration_ms = (int) $found;
+                    break;
                 }
             }
         }
@@ -228,8 +216,6 @@ class Keoni_Bridge_Repository {
             'min_score'        => isset( $aggregates['min_score'] ) ? (float) $aggregates['min_score'] : 0,
             'last_updated'     => (string) ( $aggregates['last_updated'] ?? '' ),
             'duration_ms'      => null !== $duration_ms ? (int) $duration_ms : null,
-            'batch_size'       => null !== $batch_size ? (int) $batch_size : null,
-            'processed_at'     => $processed_at,
         ];
     }
 
@@ -623,14 +609,57 @@ class Keoni_Bridge_Repository {
             'processing_duration_ms',
             'execution_ms',
             'elapsed_ms',
+            'duration',
+            'duration_s',
+            'duration_sec',
+            'duration_seconds',
+            'execution_time_s',
+            'elapsed_seconds',
+            'duration_text',
         ];
 
         foreach ( $keys as $key ) {
-            if ( isset( $extra[ $key ] ) && is_numeric( $extra[ $key ] ) ) {
-                $value = (int) $extra[ $key ];
+            if ( ! isset( $extra[ $key ] ) ) {
+                continue;
+            }
 
-                if ( $value > 0 ) {
-                    return $value;
+            $raw = $extra[ $key ];
+
+            if ( is_numeric( $raw ) ) {
+                $num = (float) $raw;
+                if ( $num <= 0 ) {
+                    continue;
+                }
+
+                if ( str_ends_with( $key, '_ms' ) ) {
+                    return (int) round( $num );
+                }
+
+                if ( in_array( $key, [ 'duration_s', 'duration_sec', 'duration_seconds', 'execution_time_s', 'elapsed_seconds' ], true ) ) {
+                    return (int) round( $num * 1000 );
+                }
+
+                if ( 'duration' === $key ) {
+                    return $num >= 1000 ? (int) round( $num ) : (int) round( $num * 1000 );
+                }
+
+                return (int) round( $num );
+            }
+
+            if ( is_string( $raw ) ) {
+                $value = trim( strtolower( $raw ) );
+
+                if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*ms/', $value, $m ) ) {
+                    return (int) round( (float) $m[1] );
+                }
+
+                if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*s(ec)?\b/', $value, $m ) ) {
+                    return (int) round( (float) $m[1] * 1000 );
+                }
+
+                if ( is_numeric( $value ) ) {
+                    $num = (float) $value;
+                    return $num >= 1000 ? (int) round( $num ) : (int) round( $num * 1000 );
                 }
             }
         }
