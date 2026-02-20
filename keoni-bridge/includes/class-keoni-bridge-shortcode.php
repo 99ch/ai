@@ -62,6 +62,31 @@ class Keoni_Bridge_Shortcode {
         $limit      = intval( $data['limit'] ?? $atts['limit'] );
         $offset     = intval( $data['offset'] ?? $atts['offset'] );
         $has_more   = ( $offset + $limit ) < $total;
+        $kpis       = Keoni_Bridge_Repository::get_matching_kpis( $job_id );
+        $date_format = get_option( 'date_format', 'Y-m-d' );
+        $time_format = get_option( 'time_format', 'H:i' );
+
+        $last_run_label = '';
+        if ( ! empty( $kpis['last_updated'] ) ) {
+            $last_ts = strtotime( (string) $kpis['last_updated'] );
+            if ( $last_ts ) {
+                $last_run_label = date_i18n( $date_format . ' ' . $time_format, $last_ts );
+            }
+        }
+
+        $avg_score_label = number_format_i18n( (float) ( $kpis['avg_score'] ?? 0 ), 1 );
+        $best_score_label = number_format_i18n( (float) ( $kpis['best_score'] ?? 0 ), 1 );
+        $duration_label = self::format_duration_ms( $kpis['duration_ms'] ?? null );
+        $batch_size_label = ! empty( $kpis['batch_size'] )
+            ? number_format_i18n( (int) $kpis['batch_size'] )
+            : __( 'Non disponible', 'keoni-bridge' );
+        $processed_at_label = '';
+        if ( ! empty( $kpis['processed_at'] ) ) {
+            $processed_ts = strtotime( (string) $kpis['processed_at'] );
+            if ( $processed_ts ) {
+                $processed_at_label = date_i18n( $date_format . ' ' . $time_format, $processed_ts );
+            }
+        }
         $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id );
         $nonce       = wp_create_nonce( 'keoni_matching' );
         $reset_nonce = wp_create_nonce( 'keoni_bridge_reset_matching' );
@@ -69,6 +94,39 @@ class Keoni_Bridge_Shortcode {
         ob_start();
         ?>
         <div class="keoni-matching-wrapper">
+        <section class="keoni-matching-kpis" aria-label="<?php echo esc_attr__( 'KPI workflow n8n', 'keoni-bridge' ); ?>">
+            <div class="keoni-matching-kpis__title"><?php esc_html_e( 'KPI workflow n8n', 'keoni-bridge' ); ?></div>
+            <div class="keoni-matching-kpis__grid">
+                <article class="keoni-matching-kpis__item">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Candidats analysés', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( number_format_i18n( (int) ( $kpis['candidates_count'] ?? 0 ) ) ); ?></strong>
+                </article>
+                <article class="keoni-matching-kpis__item">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Score moyen', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $avg_score_label ); ?></strong>
+                </article>
+                <article class="keoni-matching-kpis__item">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Meilleur score', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $best_score_label ); ?></strong>
+                </article>
+                <article class="keoni-matching-kpis__item">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Durée exécution', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $duration_label ); ?></strong>
+                </article>
+                <article class="keoni-matching-kpis__item">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Taille du batch', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $batch_size_label ); ?></strong>
+                </article>
+                <article class="keoni-matching-kpis__item keoni-matching-kpis__item--wide">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Dernière exécution', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $last_run_label ?: __( 'Non disponible', 'keoni-bridge' ) ); ?></strong>
+                </article>
+                <article class="keoni-matching-kpis__item keoni-matching-kpis__item--wide">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Traité à', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $processed_at_label ?: __( 'Non disponible', 'keoni-bridge' ) ); ?></strong>
+                </article>
+            </div>
+        </section>
         <div class="keoni-matching">
             <?php echo $cards_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
         </div>
@@ -166,28 +224,42 @@ class Keoni_Bridge_Shortcode {
             }
 
             $rank_label = '';
+            $rank_value = 0;
             if ( isset( $item['extra']['rank'] ) ) {
-                $rank_label = sprintf( __( 'Rang #%d', 'keoni-bridge' ), (int) $item['extra']['rank'] );
+                $rank_value = (int) $item['extra']['rank'];
+                $rank_label = sprintf( __( 'Rang #%d', 'keoni-bridge' ), $rank_value );
             }
+
+            $score_percent = max( 0, min( 100, $score ) );
+            $top_reasons   = array_slice( $strengths, 0, 3 );
+            $keyword_count = count( $keywords );
+            $details_open  = ( 1 === $rank_value ) ? ' open' : '';
             ?>
             <article class="keoni-matching__card keoni-matching__card--resume">
-                <div class="keoni-matching__avatar">
-                    <img src="<?php echo esc_url( $photo ); ?>" alt="<?php echo esc_attr( $name ); ?>" />
-                </div>
                 <div class="keoni-matching__body">
-                    <div class="keoni-matching__resume-header">
-                        <div>
-                            <h3 class="keoni-matching__resume-name"><?php echo esc_html( $name ); ?></h3>
-                            <?php if ( $job_type ) : ?>
-                                <div class="keoni-matching__resume-role"><?php echo esc_html( $job_type ); ?></div>
-                            <?php endif; ?>
+                    <div class="keoni-matching__top">
+                        <div class="keoni-matching__avatar">
+                            <img src="<?php echo esc_url( $photo ); ?>" alt="<?php echo esc_attr( $name ); ?>" />
                         </div>
-                        <div class="keoni-matching__scorebox">
-                            <span class="keoni-matching__score <?php echo esc_attr( $score_class ); ?>"><?php echo esc_html( number_format_i18n( $score, 1 ) ); ?></span>
-                            <small><?php esc_html_e( 'Score IA', 'keoni-bridge' ); ?></small>
-                            <?php if ( $rank_label ) : ?>
-                                <small class="keoni-matching__score-rank"><?php echo esc_html( $rank_label ); ?></small>
-                            <?php endif; ?>
+                        <div class="keoni-matching__identity">
+                            <h3 class="keoni-matching__resume-name"><?php echo esc_html( $name ); ?></h3>
+                            <div class="keoni-matching__identity-badges">
+                                <?php if ( $job_type ) : ?>
+                                    <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $job_type ); ?></span>
+                                <?php endif; ?>
+                                <?php if ( $rank_label ) : ?>
+                                    <span class="keoni-matching__chip keoni-matching__chip--rank"><?php echo esc_html( $rank_label ); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <div class="keoni-matching__score-panel">
+                            <div class="keoni-matching__scoreline">
+                                <span class="keoni-matching__score <?php echo esc_attr( $score_class ); ?>"><?php echo esc_html( number_format_i18n( $score, 1 ) ); ?></span>
+                                <span class="keoni-matching__score-label"><?php esc_html_e( 'Score IA', 'keoni-bridge' ); ?></span>
+                            </div>
+                            <div class="keoni-matching__scorebar" aria-hidden="true">
+                                <span class="<?php echo esc_attr( $score_class ); ?>" style="width:<?php echo esc_attr( number_format( $score_percent, 1, '.', '' ) ); ?>%"></span>
+                            </div>
                         </div>
                     </div>
 
@@ -204,28 +276,10 @@ class Keoni_Bridge_Shortcode {
                                 <span><?php echo esc_html( $category ); ?></span>
                             </span>
                         <?php endif; ?>
-                        <?php if ( $salary ) : ?>
-                            <span class="keoni-matching__resume-meta-item">
-                                <strong><?php esc_html_e( 'Salaire', 'keoni-bridge' ); ?></strong>
-                                <span><?php echo esc_html( $salary ); ?></span>
-                            </span>
-                        <?php endif; ?>
                         <?php if ( $experience ) : ?>
                             <span class="keoni-matching__resume-meta-item">
                                 <strong><?php esc_html_e( 'Expérience', 'keoni-bridge' ); ?></strong>
                                 <span><?php echo esc_html( $experience ); ?></span>
-                            </span>
-                        <?php endif; ?>
-                        <?php if ( $location ) : ?>
-                            <span class="keoni-matching__resume-meta-item">
-                                <strong><?php esc_html_e( 'Localisation', 'keoni-bridge' ); ?></strong>
-                                <span><?php echo esc_html( $location ); ?></span>
-                            </span>
-                        <?php endif; ?>
-                        <?php if ( $email_raw ) : ?>
-                            <span class="keoni-matching__resume-meta-item">
-                                <strong><?php esc_html_e( 'Email', 'keoni-bridge' ); ?></strong>
-                                <span><a href="mailto:<?php echo esc_attr( $email_raw ); ?>"><?php echo esc_html( $email_raw ); ?></a></span>
                             </span>
                         <?php endif; ?>
                         <?php if ( $created_at ) : ?>
@@ -236,62 +290,97 @@ class Keoni_Bridge_Shortcode {
                         <?php endif; ?>
                     </div>
 
-                    <div class="keoni-matching__section-grid">
-                        <div class="keoni-matching__section">
-                            <strong><?php esc_html_e( 'Forces', 'keoni-bridge' ); ?></strong>
-                            <?php if ( ! empty( $strengths ) ) : ?>
+                    <div class="keoni-matching__decision-row">
+                        <div class="keoni-matching__section keoni-matching__section--summary">
+                            <strong><?php esc_html_e( 'Pourquoi ce match ?', 'keoni-bridge' ); ?></strong>
+                            <?php if ( ! empty( $top_reasons ) ) : ?>
                                 <ul class="keoni-matching__list">
-                                    <?php foreach ( $strengths as $strength ) : ?>
-                                        <li><?php echo esc_html( $strength ); ?></li>
+                                    <?php foreach ( $top_reasons as $reason ) : ?>
+                                        <li><?php echo esc_html( $reason ); ?></li>
                                     <?php endforeach; ?>
                                 </ul>
                             <?php else : ?>
-                                <p><?php esc_html_e( 'Aucune force détectée.', 'keoni-bridge' ); ?></p>
+                                <p><?php esc_html_e( 'Aucun indicateur fort détecté.', 'keoni-bridge' ); ?></p>
                             <?php endif; ?>
                         </div>
-                        <div class="keoni-matching__section">
-                            <strong><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></strong>
-                            <?php if ( ! empty( $weaknesses ) ) : ?>
-                                <ul class="keoni-matching__list">
-                                    <?php foreach ( $weaknesses as $weakness ) : ?>
-                                        <li><?php echo esc_html( $weakness ); ?></li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            <?php else : ?>
-                                <p><?php esc_html_e( 'Aucun signal particulier.', 'keoni-bridge' ); ?></p>
+                        <div class="keoni-matching__decision-chips">
+                            <?php if ( $experience ) : ?>
+                                <span class="keoni-matching__chip keoni-matching__chip--decision"><?php echo esc_html( sprintf( __( 'Exp: %s', 'keoni-bridge' ), $experience ) ); ?></span>
                             <?php endif; ?>
+                            <?php if ( $job_type ) : ?>
+                                <span class="keoni-matching__chip keoni-matching__chip--decision"><?php echo esc_html( sprintf( __( 'Contrat: %s', 'keoni-bridge' ), $job_type ) ); ?></span>
+                            <?php endif; ?>
+                            <span class="keoni-matching__chip keoni-matching__chip--decision"><?php echo esc_html( sprintf( __( 'Mots-clés: %d', 'keoni-bridge' ), $keyword_count ) ); ?></span>
                         </div>
                     </div>
 
-                    <div class="keoni-matching__section">
-                        <strong><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></strong>
-                        <?php if ( empty( $keywords ) ) : ?>
-                            <p><?php esc_html_e( 'Aucun mot-clé surligné.', 'keoni-bridge' ); ?></p>
-                        <?php else : ?>
-                            <div class="keoni-matching__resume-keywords">
-                                <?php foreach ( $keywords as $keyword ) : ?>
-                                    <span><?php echo esc_html( $keyword ); ?></span>
-                                <?php endforeach; ?>
+                    <details class="keoni-matching__details"<?php echo esc_attr( $details_open ); ?>>
+                        <summary><?php esc_html_e( 'Voir détails', 'keoni-bridge' ); ?></summary>
+                        <div class="keoni-matching__section-grid">
+                            <div class="keoni-matching__section keoni-matching__section--strengths">
+                                <strong><?php esc_html_e( 'Forces', 'keoni-bridge' ); ?></strong>
+                                <?php if ( ! empty( $strengths ) ) : ?>
+                                    <ul class="keoni-matching__list">
+                                        <?php foreach ( $strengths as $strength ) : ?>
+                                            <li><?php echo esc_html( $strength ); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <p><?php esc_html_e( 'Aucune force détectée.', 'keoni-bridge' ); ?></p>
+                                <?php endif; ?>
                             </div>
-                        <?php endif; ?>
-                    </div>
+                            <div class="keoni-matching__section keoni-matching__section--weaknesses">
+                                <strong><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></strong>
+                                <?php if ( ! empty( $weaknesses ) ) : ?>
+                                    <ul class="keoni-matching__list">
+                                        <?php foreach ( $weaknesses as $weakness ) : ?>
+                                            <li><?php echo esc_html( $weakness ); ?></li>
+                                        <?php endforeach; ?>
+                                    </ul>
+                                <?php else : ?>
+                                    <p><?php esc_html_e( 'Aucun signal particulier.', 'keoni-bridge' ); ?></p>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+
+                        <div class="keoni-matching__section keoni-matching__section--keywords">
+                            <strong><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></strong>
+                            <?php if ( empty( $keywords ) ) : ?>
+                                <p class="keoni-matching__muted"><?php esc_html_e( 'Aucun mot-clé détecté.', 'keoni-bridge' ); ?></p>
+                            <?php else : ?>
+                                <div class="keoni-matching__resume-keywords">
+                                    <?php foreach ( $keywords as $keyword ) : ?>
+                                        <span><?php echo esc_html( $keyword ); ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </details>
 
                     <div class="keoni-matching__resume-actions keoni-matching__actions">
                         <?php if ( $profile_url ) : ?>
-                            <a class="keoni-matching__btn keoni-matching__btn--ghost keoni-matching__btn--view-resume" href="<?php echo esc_url( $profile_url ); ?>" target="_blank" rel="noopener">
-                                <?php esc_html_e( 'View Resume', 'keoni-bridge' ); ?>
+                            <a class="keoni-matching__btn keoni-matching__btn--primary keoni-matching__btn--full" href="<?php echo esc_url( $profile_url ); ?>" target="_blank" rel="noopener">
+                                <?php esc_html_e( 'Voir le CV', 'keoni-bridge' ); ?>
                             </a>
                         <?php endif; ?>
-                        <?php if ( $resume_url ) : ?>
-                            <a class="keoni-matching__btn keoni-matching__btn--ghost" href="<?php echo esc_url( $resume_url ); ?>" target="_blank" rel="noopener">
-                                <?php esc_html_e( 'Télécharger le CV', 'keoni-bridge' ); ?>
-                            </a>
-                        <?php endif; ?>
-                        <?php if ( $email_raw ) : ?>
-                            <a class="keoni-matching__btn keoni-matching__btn--primary" href="mailto:<?php echo esc_attr( $email_raw ); ?>">
-                                <?php esc_html_e( 'Contacter', 'keoni-bridge' ); ?>
-                            </a>
-                        <?php endif; ?>
+                        <div class="keoni-matching__actions-secondary">
+                            <?php if ( $resume_url ) : ?>
+                                <a class="keoni-matching__btn keoni-matching__btn--ghost" href="<?php echo esc_url( $resume_url ); ?>" target="_blank" rel="noopener">
+                                    <?php esc_html_e( 'Télécharger le CV', 'keoni-bridge' ); ?>
+                                </a>
+                            <?php endif; ?>
+                            <?php if ( $email_raw ) : ?>
+                                <a class="keoni-matching__btn keoni-matching__btn--ghost" href="mailto:<?php echo esc_attr( $email_raw ); ?>">
+                                    <?php esc_html_e( 'Envoyer un e-mail', 'keoni-bridge' ); ?>
+                                </a>
+                            <?php endif; ?>
+                            <?php if ( $location ) : ?>
+                                <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $location ); ?></span>
+                            <?php endif; ?>
+                            <?php if ( $salary ) : ?>
+                                <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $salary ); ?></span>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             </article>
@@ -356,6 +445,31 @@ class Keoni_Bridge_Shortcode {
         }
 
         return 'score-low';
+    }
+
+    private static function format_duration_ms( $duration_ms ): string {
+        if ( ! is_numeric( $duration_ms ) ) {
+            return __( 'Non disponible', 'keoni-bridge' );
+        }
+
+        $duration = (int) $duration_ms;
+
+        if ( $duration <= 0 ) {
+            return __( 'Non disponible', 'keoni-bridge' );
+        }
+
+        if ( $duration < 1000 ) {
+            return sprintf( __( '%d ms', 'keoni-bridge' ), $duration );
+        }
+
+        if ( $duration < 60000 ) {
+            return sprintf( __( '%.1f s', 'keoni-bridge' ), $duration / 1000 );
+        }
+
+        $minutes = floor( $duration / 60000 );
+        $seconds = floor( ( $duration % 60000 ) / 1000 );
+
+        return sprintf( __( '%d min %d s', 'keoni-bridge' ), $minutes, $seconds );
     }
 
     private static function build_cv_url( array $cv ): string {

@@ -142,6 +142,97 @@ class Keoni_Bridge_Repository {
         ];
     }
 
+    public static function get_matching_kpis( int $job_id ): array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'cv_matching_results';
+
+        $aggregates = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT
+                    COUNT(*) AS candidates_count,
+                    AVG(score) AS avg_score,
+                    MAX(score) AS best_score,
+                    MIN(score) AS min_score,
+                    MAX(updated_at) AS last_updated
+                 FROM (
+                    SELECT
+                        cv_id,
+                        MAX(score) AS score,
+                        MAX(updated_at) AS updated_at
+                    FROM {$table}
+                    WHERE job_id = %d
+                    GROUP BY cv_id
+                 ) grouped",
+                $job_id
+            ),
+            ARRAY_A
+        );
+
+        $duration_ms = null;
+        $batch_size = null;
+        $processed_at = '';
+        $processed_ts = 0;
+        $rows = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT MAX(extra) AS extra
+                 FROM {$table}
+                 WHERE job_id = %d
+                 GROUP BY cv_id",
+                $job_id
+            )
+        );
+
+        if ( ! empty( $rows ) ) {
+            foreach ( $rows as $raw_extra ) {
+                if ( empty( $raw_extra ) ) {
+                    continue;
+                }
+
+                $extra = json_decode( (string) $raw_extra, true );
+
+                if ( ! is_array( $extra ) ) {
+                    continue;
+                }
+
+                $found = self::extract_duration_ms_from_extra( $extra );
+
+                if ( null === $found ) {
+                    $found = null;
+                }
+
+                if ( null !== $found ) {
+                    $duration_ms = max( (int) $found, (int) ( $duration_ms ?? 0 ) );
+                }
+
+                $found_batch = self::extract_batch_size_from_extra( $extra );
+                if ( null !== $found_batch ) {
+                    $batch_size = max( (int) $found_batch, (int) ( $batch_size ?? 0 ) );
+                }
+
+                $found_processed_at = self::extract_processed_at_from_extra( $extra );
+                if ( ! empty( $found_processed_at ) ) {
+                    $candidate_ts = strtotime( $found_processed_at );
+                    if ( $candidate_ts && $candidate_ts > $processed_ts ) {
+                        $processed_ts = $candidate_ts;
+                        $processed_at = $found_processed_at;
+                    }
+                }
+            }
+        }
+
+        return [
+            'candidates_count' => (int) ( $aggregates['candidates_count'] ?? 0 ),
+            'avg_score'        => isset( $aggregates['avg_score'] ) ? (float) $aggregates['avg_score'] : 0,
+            'best_score'       => isset( $aggregates['best_score'] ) ? (float) $aggregates['best_score'] : 0,
+            'min_score'        => isset( $aggregates['min_score'] ) ? (float) $aggregates['min_score'] : 0,
+            'last_updated'     => (string) ( $aggregates['last_updated'] ?? '' ),
+            'duration_ms'      => null !== $duration_ms ? (int) $duration_ms : null,
+            'batch_size'       => null !== $batch_size ? (int) $batch_size : null,
+            'processed_at'     => $processed_at,
+        ];
+    }
+
     public static function delete_matching_results( int $job_id ): int {
         global $wpdb;
 
@@ -523,5 +614,59 @@ class Keoni_Bridge_Repository {
             'metadata'         => wp_json_encode( $metadata ),
             'updated_at'       => current_time( 'mysql', true ),
         ];
+    }
+
+    private static function extract_duration_ms_from_extra( array $extra ): ?int {
+        $keys = [
+            'duration_ms',
+            'workflow_duration_ms',
+            'processing_duration_ms',
+            'execution_ms',
+            'elapsed_ms',
+        ];
+
+        foreach ( $keys as $key ) {
+            if ( isset( $extra[ $key ] ) && is_numeric( $extra[ $key ] ) ) {
+                $value = (int) $extra[ $key ];
+
+                if ( $value > 0 ) {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function extract_batch_size_from_extra( array $extra ): ?int {
+        $keys = [ 'batch_size', 'results_count', 'processed_count' ];
+
+        foreach ( $keys as $key ) {
+            if ( isset( $extra[ $key ] ) && is_numeric( $extra[ $key ] ) ) {
+                $value = (int) $extra[ $key ];
+                if ( $value > 0 ) {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function extract_processed_at_from_extra( array $extra ): string {
+        $keys = [ 'processed_at', 'executed_at', 'completed_at' ];
+
+        foreach ( $keys as $key ) {
+            if ( empty( $extra[ $key ] ) ) {
+                continue;
+            }
+
+            $value = (string) $extra[ $key ];
+            if ( strtotime( $value ) ) {
+                return $value;
+            }
+        }
+
+        return '';
     }
 }

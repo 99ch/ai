@@ -132,7 +132,7 @@
             },
             {
               "name": "results",
-              "value": "={{ Array.isArray($json.results) ? $json.results : [] }}"
+              "value": "={{ (Array.isArray($json.results) ? $json.results : []).map(r => ({ ...r, extra: { ...((r && r.extra && typeof r.extra === 'object' && !Array.isArray(r.extra)) ? r.extra : {}), duration_ms: ($json.duration_ms || $json.workflow_duration_ms || null), batch_size: (Array.isArray($json.results) ? $json.results.length : 0), processed_at: (new Date()).toISOString() } })) }}"
             }
           ]
         },
