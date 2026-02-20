@@ -604,8 +604,8 @@ class Keoni_Bridge_Repository {
 
     private static function extract_duration_ms_from_extra( array $extra ): ?int {
         $keys = [
-            'duration_ms',
             'workflow_duration_ms',
+            'duration_ms',
             'processing_duration_ms',
             'execution_ms',
             'elapsed_ms',
