@@ -5,8 +5,6 @@ import os
 import re
 import secrets
 import time
-import unicodedata
-from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
 from threading import Lock
@@ -57,27 +55,6 @@ DEFAULT_STOPWORDS = {
     "our",
     "your",
     "their",
-    "developpeur",
-    "développeur",
-    "developer",
-    "dev",
-    "full",
-    "stack",
-    "fullstack",
-    "senior",
-    "junior",
-    "consultant",
-    "chef",
-    "projet",
-    "project",
-    "manager",
-    "ingenieur",
-    "ingénieur",
-    "analyste",
-    "architecte",
-    "technicien",
-    "administrateur",
-    "responsable",
 }
 
 
@@ -86,22 +63,40 @@ class Settings:
     sentence_model: str = os.getenv("SENTENCE_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
     top_k: int = int(os.getenv("MATCHING_TOP_K", "200"))
     min_similarity: float = float(os.getenv("MATCHING_MIN_SIMILARITY", "0.2"))
-    keyword_weight: float = float(os.getenv("MATCHING_KEYWORD_WEIGHT", "12"))
-    keyword_boost_weight: float = float(os.getenv("MATCHING_KEYWORD_BOOST_WEIGHT", "8"))
-    keyword_boost_threshold: int = int(os.getenv("MATCHING_KEYWORD_BOOST_THRESHOLD", "2"))
+    keyword_weight: float = float(os.getenv("MATCHING_KEYWORD_WEIGHT", "5"))
     title_weight: float = float(os.getenv("MATCHING_TITLE_WEIGHT", "10"))
     location_weight: float = float(os.getenv("MATCHING_LOCATION_WEIGHT", "5"))
+    category_weight: float = float(os.getenv("MATCHING_CATEGORY_WEIGHT", "6"))
+    jobtype_weight: float = float(os.getenv("MATCHING_JOBTYPE_WEIGHT", "8"))
+    experience_weight: float = float(os.getenv("MATCHING_EXPERIENCE_WEIGHT", "8"))
+    salary_weight: float = float(os.getenv("MATCHING_SALARY_WEIGHT", "6"))
+    qualification_penalty: float = float(os.getenv("MATCHING_QUALIFICATION_PENALTY", "20"))
+    hard_filter_jobtype: bool = os.getenv("MATCHING_HARD_FILTER_JOBTYPE", "1") == "1"
+    hard_filter_qualification: bool = os.getenv("MATCHING_HARD_FILTER_QUALIFICATION", "1") == "1"
     embed_batch_size: int = int(os.getenv("EMBED_BATCH_SIZE", "32"))
+    preload_model: bool = os.getenv("MATCHING_PRELOAD_MODEL", "1") == "1"
     data_dir: Path = Path(os.getenv("DATA_DIR", "/data/cv_raw"))
-    require_signal: bool = os.getenv("MATCHING_REQUIRE_SIGNAL", "true").lower() == "true"
-    min_keyword_hits: int = int(os.getenv("MATCHING_MIN_KEYWORD_HITS", "1"))
-    min_title_hits: int = int(os.getenv("MATCHING_MIN_TITLE_HITS", "2"))
-    exact_title_weight: float = float(os.getenv("MATCHING_EXACT_TITLE_WEIGHT", "25"))
 
 
 settings = Settings()
 _model: Optional[SentenceTransformer] = None
 _model_lock = Lock()
+
+
+@app.on_event("startup")
+def warmup_model() -> None:
+    if not settings.preload_model:
+        logging.info("Model warmup disabled (MATCHING_PRELOAD_MODEL=0)")
+        return
+
+    started = time.perf_counter()
+    try:
+        model = get_model()
+        model.encode(["warmup"], batch_size=1, convert_to_numpy=True, normalize_embeddings=True)
+        elapsed_ms = int((time.perf_counter() - started) * 1000)
+        logging.info("Model preloaded and warmed in %d ms", elapsed_ms)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Model warmup failed: %s", exc)
 
 
 class JobPayload(BaseModel):
@@ -155,12 +150,15 @@ class ScoreResponse(BaseModel):
 @dataclass(slots=True)
 class PreparedJob:
     text: str
-    title: str
     tokens: set[str]
     keywords: List[str]
     keyword_set: set[str]
     location: str
-    title_tokens: set[str]
+    category: str
+    jobtype: str
+    min_experience_years: Optional[float]
+    salary_min: Optional[float]
+    salary_max: Optional[float]
 
 
 @dataclass(slots=True)
@@ -171,6 +169,12 @@ class PreparedCv:
     keywords: List[str]
     keyword_set: set[str]
     location: str
+    category: str
+    jobtype: str
+    experience_years: Optional[float]
+    salary_expected_min: Optional[float]
+    salary_expected_max: Optional[float]
+    qualified: Optional[bool]
 
 
 def require_api_key(x_api_key: str = Header(default="")) -> None:
@@ -191,31 +195,6 @@ def get_model() -> SentenceTransformer:
 
 def normalize_whitespace(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
-
-
-def normalize_title(value: str) -> str:
-    cleaned = normalize_whitespace(value.lower())
-    cleaned = "".join(
-        char for char in unicodedata.normalize("NFKD", cleaned)
-        if not unicodedata.combining(char)
-    )
-    cleaned = re.sub(r"[^a-z0-9\s]", " ", cleaned)
-    return normalize_whitespace(cleaned)
-
-
-def title_tokens(value: str) -> set[str]:
-    normalized = normalize_title(value)
-    if not normalized:
-        return set()
-    return set(normalized.split())
-
-
-def is_title_equivalent(job_title_norm: str, cv_title_norm: str) -> bool:
-    if not job_title_norm or not cv_title_norm:
-        return False
-    if job_title_norm == cv_title_norm:
-        return True
-    return job_title_norm in cv_title_norm
 
 
 def tokenize(text: str) -> set[str]:
@@ -248,6 +227,73 @@ def parse_keywords(raw: Optional[Union[str, Sequence[str]]]) -> List[str]:
         seen.add(cleaned)
         keywords.append(cleaned)
     return keywords
+
+
+def normalized_text(value: Optional[object]) -> str:
+    if value is None:
+        return ""
+    return normalize_whitespace(str(value)).lower()
+
+
+def parse_float(value: Optional[object]) -> Optional[float]:
+    if value is None:
+        return None
+    text = str(value).strip().replace(",", ".")
+    if not text:
+        return None
+    match = re.search(r"-?\d+(?:\.\d+)?", text)
+    if not match:
+        return None
+    try:
+        return float(match.group(0))
+    except ValueError:
+        return None
+
+
+def parse_range(value: Optional[object]) -> Tuple[Optional[float], Optional[float]]:
+    if value is None:
+        return None, None
+    text = str(value).strip().replace(",", ".")
+    if not text:
+        return None, None
+    numbers = [float(m) for m in re.findall(r"\d+(?:\.\d+)?", text)]
+    if not numbers:
+        return None, None
+    if len(numbers) == 1:
+        return numbers[0], numbers[0]
+    return min(numbers), max(numbers)
+
+
+def parse_boolish(value: Optional[object]) -> Optional[bool]:
+    if value is None:
+        return None
+    text = normalized_text(value)
+    if not text:
+        return None
+    yes_values = {"yes", "oui", "true", "1", "qualifie", "qualifié", "ok"}
+    no_values = {"no", "non", "false", "0", "ko"}
+    if text in yes_values:
+        return True
+    if text in no_values:
+        return False
+    return None
+
+
+def find_first(source: dict, keys: Sequence[str]) -> Optional[object]:
+    for key in keys:
+        if key in source and source.get(key) not in (None, ""):
+            return source.get(key)
+    return None
+
+
+def overlap_text(a: str, b: str) -> bool:
+    if not a or not b:
+        return False
+    if a in b or b in a:
+        return True
+    a_tokens = set(tokenize(a))
+    b_tokens = set(tokenize(b))
+    return bool(a_tokens.intersection(b_tokens))
 
 
 def resolve_file_path(raw_path: str) -> Optional[Path]:
@@ -283,7 +329,7 @@ def text_from_file(path: Path) -> str:
 
 def assemble_cv_text(cv: CvPayload) -> str:
     parts: List[str] = []
-    for value in [cv.application_title, cv.title, cv.text_content, cv.resume, cv.skills, cv.keywords]:
+    for value in [cv.text_content, cv.resume, cv.skills]:
         if value:
             parts.append(value)
 
@@ -310,37 +356,103 @@ def assemble_cv_text(cv: CvPayload) -> str:
 
 def prepare_job(job: JobPayload) -> PreparedJob:
     meta = job.meta or {}
-    keywords = (
-        parse_keywords(job.keywords)
-        + parse_keywords(meta.get("skills"))
-        + parse_keywords(job.description)
-        + parse_keywords(job.content)
-        + parse_keywords(job.excerpt)
-    )
+    keywords = parse_keywords(job.keywords) + parse_keywords(meta.get("skills"))
     keywords = list(dict.fromkeys(keywords))
     text_parts = [job.title, job.description, job.content, job.excerpt, " ".join(keywords), meta.get("experience", "")]
     text = normalize_whitespace(" ".join(filter(None, text_parts)))
     location = (job.location or meta.get("location") or "").lower()
     tokens = tokenize(f"{job.title} {job.description}")
+    category = normalized_text(find_first(meta, ["jobcategory_text", "category_text", "job_category", "category"]))
+    jobtype = normalized_text(find_first(meta, ["jobtype_text", "job_type", "type", "jobtype"]))
+    min_experience_years = parse_float(find_first(meta, ["experience", "min_experience", "required_experience"]))
+
+    salary_min = parse_float(find_first(meta, ["salaryfrom", "salary_min", "salary_from"]))
+    salary_max = parse_float(find_first(meta, ["salaryto", "salary_max", "salary_to", "tjm", "salary"]))
+
     return PreparedJob(
         text=text,
-        title=job.title,
         tokens=tokens,
         keywords=keywords,
         keyword_set=set(keywords),
         location=location,
-        title_tokens=title_tokens(job.title),
+        category=category,
+        jobtype=jobtype,
+        min_experience_years=min_experience_years,
+        salary_min=salary_min,
+        salary_max=salary_max,
     )
 
 
 def prepare_cv(cv: CvPayload) -> PreparedCv:
     meta = cv.metadata or {}
+    raw = cv.model_dump()
     text = assemble_cv_text(cv)
-    title_tokens_value = title_tokens(" ".join(filter(None, [cv.application_title, cv.title])))
+    title_tokens = tokenize(" ".join(filter(None, [cv.application_title, cv.title])))
     keywords = parse_keywords(cv.keywords) + parse_keywords(meta.get("keywords")) + parse_keywords(cv.skills)
     keywords = list(dict.fromkeys(keywords))
     location = (cv.location or meta.get("location") or "").lower()
-    return PreparedCv(payload=cv, text=text, title_tokens=title_tokens_value, keywords=keywords, keyword_set=set(keywords), location=location)
+
+    category = normalized_text(
+        find_first(raw, ["category_text", "category", "job_category"]) or find_first(meta, ["category_text", "category", "job_category"])
+    )
+    jobtype = normalized_text(
+        find_first(raw, ["job_type", "type", "jobtype", "jobtype_text"]) or find_first(meta, ["job_type", "type", "jobtype", "jobtype_text"])
+    )
+    experience_years = parse_float(
+        find_first(raw, ["total_experience", "experience", "experience_years"]) or find_first(meta, ["total_experience", "experience", "experience_years"])
+    )
+    salary_min, salary_max = parse_range(
+        find_first(raw, ["salary_requested", "salary", "salary_range", "expected_salary", "tjm"]) or find_first(meta, ["salary_requested", "salary", "salary_range", "expected_salary", "tjm"])
+    )
+    qualified = parse_boolish(
+        find_first(raw, ["qualified_for_job", "qualified", "qualifie", "qualifié"]) or find_first(meta, ["qualified_for_job", "qualified", "qualifie", "qualifié"])
+    )
+
+    return PreparedCv(
+        payload=cv,
+        text=text,
+        title_tokens=title_tokens,
+        keywords=keywords,
+        keyword_set=set(keywords),
+        location=location,
+        category=category,
+        jobtype=jobtype,
+        experience_years=experience_years,
+        salary_expected_min=salary_min,
+        salary_expected_max=salary_max,
+        qualified=qualified,
+    )
+
+
+def passes_hard_filters(job: PreparedJob, cv: PreparedCv) -> Tuple[bool, List[str]]:
+    reasons: List[str] = []
+
+    if settings.hard_filter_qualification and cv.qualified is False:
+        reasons.append("Candidat non qualifié pour le poste")
+
+    if settings.hard_filter_jobtype and job.jobtype and cv.jobtype and not overlap_text(job.jobtype, cv.jobtype):
+        reasons.append("Type de contrat incompatible")
+
+    if job.min_experience_years is not None and cv.experience_years is not None:
+        if cv.experience_years + 0.5 < job.min_experience_years:
+            reasons.append("Expérience insuffisante")
+
+    return len(reasons) == 0, reasons
+
+
+def compute_experience_adjustment(min_years: float, cv_years: float, weight: float) -> Tuple[float, float]:
+    """Return (bonus, penalty) for experience with progressive scaling."""
+    gap = cv_years - min_years
+    denominator = max(1.0, min_years)
+
+    if gap >= 0:
+        # At threshold -> 50% of weight, then ramps to 100% when profile is clearly above requirement.
+        ratio = min(1.0, 0.5 + (gap / denominator) * 0.5)
+        return weight * ratio, 0.0
+
+    # Below requirement -> progressive penalty up to full weight.
+    deficit_ratio = min(1.0, abs(gap) / denominator)
+    return 0.0, weight * (0.5 + 0.5 * deficit_ratio)
 
 
 def encode_texts(texts: Sequence[str]) -> np.ndarray:
@@ -369,20 +481,57 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
     else:
         weaknesses.append("Aucun mot-clé commun identifié")
 
-    title_overlap = job.title_tokens.intersection(cv.title_tokens)
-    job_title_norm = normalize_title(job.title)
-    cv_title_raw = cv.payload.application_title or cv.payload.title or ""
-    cv_title_norm = normalize_title(cv_title_raw)
-    exact_title_match = is_title_equivalent(job_title_norm, cv_title_norm)
-    strong_title_match = bool(job.title_tokens and job.title_tokens.issubset(title_tokens(cv_title_raw)))
-    if exact_title_match:
-        strengths.append("Titre identique")
-    elif strong_title_match:
-        strengths.append("Titre très proche")
-    elif title_overlap:
+    title_overlap = job.tokens.intersection(cv.title_tokens)
+    if title_overlap:
         strengths.append(f"Titre proche ({', '.join(sorted(title_overlap)[:3])})")
     else:
         weaknesses.append("Titre éloigné du besoin")
+
+    structure_bonus = 0.0
+    structure_penalty = 0.0
+
+    if cv.qualified is True:
+        strengths.append("Profil déclaré qualifié pour le poste")
+    elif cv.qualified is False:
+        weaknesses.append("Profil déclaré non qualifié")
+        structure_penalty += settings.qualification_penalty
+
+    if job.jobtype and cv.jobtype:
+        if overlap_text(job.jobtype, cv.jobtype):
+            strengths.append("Type de contrat compatible")
+            structure_bonus += settings.jobtype_weight
+        else:
+            weaknesses.append("Type de contrat différent")
+            structure_penalty += settings.jobtype_weight
+
+    if job.category and cv.category:
+        if overlap_text(job.category, cv.category):
+            strengths.append("Catégorie métier alignée")
+            structure_bonus += settings.category_weight
+        else:
+            weaknesses.append("Catégorie métier différente")
+            structure_penalty += settings.category_weight / 2
+
+    if job.min_experience_years is not None and cv.experience_years is not None:
+        experience_bonus, experience_penalty = compute_experience_adjustment(
+            job.min_experience_years,
+            cv.experience_years,
+            settings.experience_weight,
+        )
+        if cv.experience_years >= job.min_experience_years:
+            strengths.append(f"Expérience suffisante ({cv.experience_years:g} ans)")
+        else:
+            weaknesses.append(f"Expérience inférieure ({cv.experience_years:g} ans)")
+        structure_bonus += experience_bonus
+        structure_penalty += experience_penalty
+
+    if job.salary_max is not None and cv.salary_expected_min is not None:
+        if cv.salary_expected_min <= job.salary_max:
+            strengths.append("Prétention salariale compatible")
+            structure_bonus += settings.salary_weight
+        else:
+            weaknesses.append("Prétention salariale au-dessus du budget")
+            structure_penalty += settings.salary_weight
 
     location_bonus = 0.0
     if job.location and cv.location:
@@ -394,23 +543,31 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
 
     base_score = max(0.0, similarity) * 70
     score = base_score + len(keyword_hits) * settings.keyword_weight
-    if len(keyword_hits) >= settings.keyword_boost_threshold:
-        score += settings.keyword_boost_weight
-    if exact_title_match:
-        score += settings.exact_title_weight
-    elif strong_title_match:
-        score += settings.title_weight + 5
-    elif title_overlap:
+    if title_overlap:
         score += settings.title_weight
     score += location_bonus
+    score += structure_bonus
+    score -= structure_penalty
     score = float(max(0.0, min(100.0, score)))
 
     extra = {
         "vector_similarity": round(float(similarity), 4),
         "keyword_hits": keyword_hits,
         "rank": rank + 1,
-        "exact_title_match": exact_title_match,
-        "strong_title_match": strong_title_match,
+        "cv_category": cv.category,
+        "cv_jobtype": cv.jobtype,
+        "cv_experience_years": cv.experience_years,
+        "cv_salary_min": cv.salary_expected_min,
+        "cv_salary_max": cv.salary_expected_max,
+        "cv_qualified": cv.qualified,
+        "score_breakdown": {
+            "semantic": round(base_score, 4),
+            "keyword_bonus": round(len(keyword_hits) * settings.keyword_weight, 4),
+            "title_bonus": round(settings.title_weight if title_overlap else 0.0, 4),
+            "location_bonus": round(location_bonus, 4),
+            "structure_bonus": round(structure_bonus, 4),
+            "structure_penalty": round(structure_penalty, 4),
+        },
     }
 
     return ScoreItem(
@@ -423,15 +580,12 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
     )
 
 
-def has_matching_signal(title_overlap: set[str], min_title_hits: int) -> bool:
-    return len(title_overlap) >= max(1, min_title_hits)
-
-
 @app.get("/health")
 def healthcheck() -> dict:
     return {
         "status": "ok",
         "model": settings.sentence_model,
+        "model_loaded": _model is not None,
         "model_cache": os.getenv("MODEL_CACHE", "/models"),
         "data_dir": str(settings.data_dir),
         "time": time.time(),
@@ -446,40 +600,22 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
     started = time.perf_counter()
 
     job = prepare_job(payload.job)
-    job_title_norm = normalize_title(payload.job.title)
-    logging.info("[matching] job_id=%s title=%r norm=%r", payload.job.id, payload.job.title, job_title_norm)
     prepared_cvs = [prepare_cv(cv) for cv in payload.cvs]
     usable = [cv for cv in prepared_cvs if cv.text]
-    logging.info("[matching] usable_cvs=%d", len(usable))
-    if usable:
-        title_norms = [
-            normalize_title(cv.payload.application_title or cv.payload.title or "")
-            for cv in usable
-        ]
-        exact_count = sum(1 for t in title_norms if is_title_equivalent(job_title_norm, t))
-        top_titles = Counter([t for t in title_norms if t]).most_common(5)
-        logging.info("[matching] exact_title_count=%d", exact_count)
-        logging.info("[matching] top_titles=%s", top_titles)
-
-    exact_only = False
-    if usable:
-        exact_title = [
-            cv for cv in usable
-            if job_title_norm
-            and is_title_equivalent(job_title_norm, normalize_title(cv.payload.application_title or cv.payload.title or ""))
-        ]
-        if exact_title:
-            usable = exact_title
-            exact_only = True
-            logging.info("[matching] exact_title_only=%d", len(usable))
-        else:
-            logging.info("[matching] exact_title_only=0")
 
     if not usable:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Aucun texte exploitable pour les CV")
 
+    filtered_usable: List[PreparedCv] = []
+    for cv in usable:
+        ok, _ = passes_hard_filters(job, cv)
+        if ok:
+            filtered_usable.append(cv)
+
+    candidates = filtered_usable if filtered_usable else usable
+
     job_embedding = encode_texts([job.text])[0]
-    cv_embeddings = encode_texts([cv.text for cv in usable])
+    cv_embeddings = encode_texts([cv.text for cv in candidates])
 
     indices, similarities = search_top_matches(job_embedding, cv_embeddings, settings.top_k)
 
@@ -489,29 +625,25 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
             continue
         if sim < settings.min_similarity:
             continue
-        cv = usable[idx]
-        keyword_hits = job.keyword_set.intersection(cv.keyword_set)
-        title_overlap = job.title_tokens.intersection(cv.title_tokens)
-        job_title_norm = normalize_title(payload.job.title)
-        cv_title_raw = cv.payload.application_title or cv.payload.title or ""
-        cv_title_norm = normalize_title(cv_title_raw)
-        logging.debug("[matching] cv_id=%s title=%r norm=%r", cv.payload.id, cv_title_raw, cv_title_norm)
-        is_exact_title = is_title_equivalent(job_title_norm, cv_title_norm)
-        if exact_only and job_title_norm and not is_exact_title:
-            continue
-        if (not is_exact_title) and job.keyword_set and len(keyword_hits) < settings.min_keyword_hits:
-            continue
-        if settings.require_signal and not has_matching_signal(title_overlap, settings.min_title_hits):
-            continue
-        scored_items.append(build_score(job, cv, sim, rank))
+        scored_items.append(build_score(job, candidates[idx], sim, rank))
 
-    if exact_only:
-        scored_items = [item for item in scored_items if item.extra.get("exact_title_match")]
-
-    if not scored_items and len(indices) and not settings.require_signal:
+    if not scored_items and len(indices):
         idx = int(indices[0])
         if idx >= 0:
-            scored_items.append(build_score(job, usable[idx], float(similarities[0]), 0))
+            scored_items.append(build_score(job, candidates[idx], float(similarities[0]), 0))
+
+    # Final deterministic ranking must follow final score, not raw embedding rank.
+    scored_items.sort(
+        key=lambda item: (
+            -float(item.score),
+            -float(item.extra.get("vector_similarity", 0.0)),
+            -float(item.extra.get("cv_experience_years") or -1),
+            int(item.cv_id),
+        )
+    )
+
+    for final_rank, item in enumerate(scored_items, start=1):
+        item.extra["rank"] = final_rank
 
     duration_ms = int((time.perf_counter() - started) * 1000)
 

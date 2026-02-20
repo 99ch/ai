@@ -39,6 +39,64 @@ class Keoni_Bridge_Rest {
                     'validate_callback' => [ $this, 'validate_numeric_param' ],
                     'default'           => 100,
                 ],
+                'application_title' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
+                'first_name' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
+                'middle_name' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
+                'last_name' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
+                'keywords' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
+                'gender' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
+                'nationality' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'jobtype' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'category' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'currencyid' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'salaryrangefrom' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'salaryrangeend' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'salaryrangetype' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'highesteducation' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'experience' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'city' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                ],
+                'zipcode' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
             ],
         ] );
 
@@ -133,19 +191,140 @@ class Keoni_Bridge_Rest {
 
         $resume_table = $wpdb->prefix . 'js_job_resume';
         $cv_table     = $wpdb->prefix . 'cv_database';
+        $salary_table = $wpdb->prefix . 'js_job_salaryrange';
+        $addr_table   = $wpdb->prefix . 'js_job_resumeaddresses';
 
-        $rows = $wpdb->get_results(
-            $wpdb->prepare(
-                "SELECT r.*, d.text_content AS cv_text_content, d.metadata AS cv_metadata
+        $joins  = [];
+        $where  = [ 'r.status = 1', 'r.searchable = 1' ];
+        $params = [];
+
+        $application_title = sanitize_text_field( (string) $request->get_param( 'application_title' ) );
+        if ( '' !== $application_title ) {
+            $where[]  = 'r.application_title LIKE %s';
+            $params[] = '%' . $wpdb->esc_like( $application_title ) . '%';
+        }
+
+        $first_name = sanitize_text_field( (string) $request->get_param( 'first_name' ) );
+        if ( '' !== $first_name ) {
+            $where[]  = 'r.first_name LIKE %s';
+            $params[] = '%' . $wpdb->esc_like( $first_name ) . '%';
+        }
+
+        $middle_name = sanitize_text_field( (string) $request->get_param( 'middle_name' ) );
+        if ( '' !== $middle_name ) {
+            $where[]  = 'r.middle_name LIKE %s';
+            $params[] = '%' . $wpdb->esc_like( $middle_name ) . '%';
+        }
+
+        $last_name = sanitize_text_field( (string) $request->get_param( 'last_name' ) );
+        if ( '' !== $last_name ) {
+            $where[]  = 'r.last_name LIKE %s';
+            $params[] = '%' . $wpdb->esc_like( $last_name ) . '%';
+        }
+
+        $gender = sanitize_text_field( (string) $request->get_param( 'gender' ) );
+        if ( '' !== $gender ) {
+            $where[]  = 'r.gender LIKE %s';
+            $params[] = '%' . $wpdb->esc_like( $gender ) . '%';
+        }
+
+        $keywords = sanitize_text_field( (string) $request->get_param( 'keywords' ) );
+        if ( '' !== $keywords ) {
+            $where[]  = 'r.keywords LIKE %s';
+            $params[] = '%' . $wpdb->esc_like( $keywords ) . '%';
+        }
+
+        $nationality = absint( $request->get_param( 'nationality' ) );
+        if ( $nationality > 0 ) {
+            $where[]  = 'r.nationality = %d';
+            $params[] = $nationality;
+        }
+
+        $jobtype = absint( $request->get_param( 'jobtype' ) );
+        if ( $jobtype > 0 ) {
+            $where[]  = 'r.jobtype = %d';
+            $params[] = $jobtype;
+        }
+
+        $currency_id = absint( $request->get_param( 'currencyid' ) );
+        if ( $currency_id > 0 ) {
+            $where[]  = 'r.currencyid = %d';
+            $params[] = $currency_id;
+        }
+
+        $salary_range_type = absint( $request->get_param( 'salaryrangetype' ) );
+        if ( $salary_range_type > 0 ) {
+            $where[]  = 'r.jobsalaryrangetype = %d';
+            $params[] = $salary_range_type;
+        }
+
+        $highest_education = absint( $request->get_param( 'highesteducation' ) );
+        if ( $highest_education > 0 ) {
+            $where[]  = 'r.heighestfinisheducation = %d';
+            $params[] = $highest_education;
+        }
+
+        $experience = absint( $request->get_param( 'experience' ) );
+        if ( $experience > 0 ) {
+            $where[]  = 'r.experienceid = %d';
+            $params[] = $experience;
+        }
+
+        $category = absint( $request->get_param( 'category' ) );
+        if ( $category > 0 ) {
+            $category_ids = $this->get_category_with_children( $category );
+            $placeholders = implode( ',', array_fill( 0, count( $category_ids ), '%d' ) );
+            $where[]      = "r.job_category IN ({$placeholders})";
+            foreach ( $category_ids as $category_id ) {
+                $params[] = $category_id;
+            }
+        }
+
+        $salary_range_from = absint( $request->get_param( 'salaryrangefrom' ) );
+        $salary_range_end  = absint( $request->get_param( 'salaryrangeend' ) );
+        if ( $salary_range_from > 0 || $salary_range_end > 0 ) {
+            $joins[] = "LEFT JOIN {$salary_table} salaryrangestart ON salaryrangestart.id = r.jobsalaryrangestart";
+            $joins[] = "LEFT JOIN {$salary_table} salaryrangeend ON salaryrangeend.id = r.jobsalaryrangeend";
+        }
+
+        if ( $salary_range_from > 0 ) {
+            $where[]  = "(SELECT rangestart FROM {$salary_table} WHERE id = %d) >= salaryrangestart.rangestart";
+            $params[] = $salary_range_from;
+        }
+
+        if ( $salary_range_end > 0 ) {
+            $where[]  = "(SELECT rangeend FROM {$salary_table} WHERE id = %d) <= salaryrangeend.rangeend";
+            $params[] = $salary_range_end;
+        }
+
+        $city = absint( $request->get_param( 'city' ) );
+        if ( $city > 0 ) {
+            $where[]  = "EXISTS (SELECT 1 FROM {$addr_table} address1 WHERE address1.resumeid = r.id AND address1.address_city = %d)";
+            $params[] = $city;
+        }
+
+        $zipcode = sanitize_text_field( (string) $request->get_param( 'zipcode' ) );
+        if ( '' !== $zipcode ) {
+            $where[]  = "EXISTS (SELECT 1 FROM {$addr_table} addresszip WHERE addresszip.resumeid = r.id AND addresszip.address_zipcode = %s)";
+            $params[] = $zipcode;
+        }
+
+        $join_sql  = empty( $joins ) ? '' : ( "\n" . implode( "\n", array_unique( $joins ) ) );
+        $where_sql = implode( ' AND ', $where );
+
+        $query = "SELECT r.*, d.text_content AS cv_text_content, d.metadata AS cv_metadata
                  FROM {$resume_table} r
                  LEFT JOIN {$cv_table} d ON d.candidate_email = r.email_address
+                 {$join_sql}
+                 WHERE {$where_sql}
+                 GROUP BY r.id
                  ORDER BY r.last_modified DESC
-                 LIMIT %d OFFSET %d",
-                $limit,
-                $offset
-            ),
-            ARRAY_A
-        );
+                 LIMIT %d OFFSET %d";
+
+        $params[] = $limit;
+        $params[] = $offset;
+
+        $rows = $wpdb->get_results( $wpdb->prepare( $query, ...$params ), ARRAY_A );
 
         $items = array_map( [ $this, 'normalize_resume' ], $rows );
 
@@ -247,6 +426,31 @@ class Keoni_Bridge_Rest {
 
     public function validate_numeric_param( $value, ?WP_REST_Request $request = null, string $param = '' ): bool {
         return is_numeric( $value );
+    }
+
+    private function get_category_with_children( int $category_id ): array {
+        global $wpdb;
+
+        if ( $category_id <= 0 ) {
+            return [];
+        }
+
+        $table = $wpdb->prefix . 'js_job_categories';
+        $rows  = $wpdb->get_results(
+            $wpdb->prepare( "SELECT id FROM {$table} WHERE parentid = %d", $category_id ),
+            ARRAY_A
+        );
+
+        $ids = [ $category_id ];
+
+        foreach ( $rows as $row ) {
+            $id = absint( $row['id'] ?? 0 );
+            if ( $id > 0 ) {
+                $ids[] = $id;
+            }
+        }
+
+        return array_values( array_unique( $ids ) );
     }
 
     private function build_job_location( array $job ): string {
