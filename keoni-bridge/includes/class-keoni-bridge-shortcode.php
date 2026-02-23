@@ -199,8 +199,6 @@ class Keoni_Bridge_Shortcode {
             }
 
             $score_percent = max( 0, min( 100, $score ) );
-            $top_reasons   = array_slice( $strengths, 0, 3 );
-            $keyword_count = count( $keywords );
             $details_open  = ( 1 === $rank_value ) ? ' open' : '';
             ?>
             <article class="keoni-matching__card keoni-matching__card--resume">
@@ -256,30 +254,6 @@ class Keoni_Bridge_Shortcode {
                                 <span><?php echo esc_html( $created_at ); ?></span>
                             </span>
                         <?php endif; ?>
-                    </div>
-
-                    <div class="keoni-matching__decision-row">
-                        <div class="keoni-matching__section keoni-matching__section--summary">
-                            <strong><?php esc_html_e( 'Pourquoi ce match ?', 'keoni-bridge' ); ?></strong>
-                            <?php if ( ! empty( $top_reasons ) ) : ?>
-                                <ul class="keoni-matching__list">
-                                    <?php foreach ( $top_reasons as $reason ) : ?>
-                                        <li><?php echo esc_html( $reason ); ?></li>
-                                    <?php endforeach; ?>
-                                </ul>
-                            <?php else : ?>
-                                <p><?php esc_html_e( 'Aucun indicateur fort détecté.', 'keoni-bridge' ); ?></p>
-                            <?php endif; ?>
-                        </div>
-                        <div class="keoni-matching__decision-chips">
-                            <?php if ( $experience ) : ?>
-                                <span class="keoni-matching__chip keoni-matching__chip--decision"><?php echo esc_html( sprintf( __( 'Exp: %s', 'keoni-bridge' ), $experience ) ); ?></span>
-                            <?php endif; ?>
-                            <?php if ( $job_type ) : ?>
-                                <span class="keoni-matching__chip keoni-matching__chip--decision"><?php echo esc_html( sprintf( __( 'Contrat: %s', 'keoni-bridge' ), $job_type ) ); ?></span>
-                            <?php endif; ?>
-                            <span class="keoni-matching__chip keoni-matching__chip--decision"><?php echo esc_html( sprintf( __( 'Mots-clés: %d', 'keoni-bridge' ), $keyword_count ) ); ?></span>
-                        </div>
                     </div>
 
                     <details class="keoni-matching__details"<?php echo esc_attr( $details_open ); ?>>
