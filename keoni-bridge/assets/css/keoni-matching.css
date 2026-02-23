@@ -9,7 +9,7 @@
 	border: 1px solid #dbe5f1;
 	border-radius: 12px;
 	padding: 12px;
-	background: #f8fbff;
+	background: #ffffff;
 	margin: 8px 0 14px;
 }
 
@@ -421,7 +421,7 @@
 
 @media (min-width: 768px) {
 	.keoni-matching {
-		grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
 	.keoni-matching__top {
@@ -450,13 +450,6 @@
 		grid-column: span 1;
 	}
 }
-
-@media (min-width: 1280px) {
-	.keoni-matching {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-}
-
 @media (max-width: 600px) {
 	.keoni-matching {
 		gap: 12px;
