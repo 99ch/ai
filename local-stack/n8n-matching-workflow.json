@@ -146,6 +146,60 @@
       ],
       "id": "74234c91-c31e-42d3-be8d-70705acb8ec3",
       "name": "Store Results"
+    },
+    {
+      "parameters": {
+        "jsCode": "const source = $node[\"Build Batch Payload\"].json || {};\nconst job = source.job || {};\nconst jobId = Number(source.job_id || job.id || 0);\nif (!jobId) {\n  return [];\n}\nconst startedAtMs = Number(source.workflow_started_at_ms || job.workflow_started_at_ms || job.meta?.workflow_started_at_ms || Date.now());\nconst durationMs = Math.max(0, Date.now() - startedAtMs);\nreturn [{ json: { job_id: jobId, duration_ms: durationMs, duration_text: `${(durationMs / 1000).toFixed(3)}s` } }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        520,
+        208
+      ],
+      "id": "6f4a2c95-5fc1-4f84-a28d-f9ed6f1d4a10",
+      "name": "Finalize Workflow KPI Payload"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.1.29:8080/wp-json/keoni/v1/matching-kpi",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "D=m-4.@O?KGN<hp_;5HG<6)[f#g!!%!f){xc~yY<*(=rpQf2B*{G+kxg0*S(XG2t"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "job_id",
+              "value": "={{ $json.job_id }}"
+            },
+            {
+              "name": "duration_ms",
+              "value": "={{ $json.duration_ms }}"
+            },
+            {
+              "name": "duration_text",
+              "value": "={{ $json.duration_text }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        760,
+        208
+      ],
+      "id": "d9b87c44-a90f-4ad0-a6ac-e4e9c6617981",
+      "name": "Store Workflow KPI"
     }
   ],
   "pinData": {},
@@ -191,6 +245,13 @@
             "type": "main",
             "index": 0
           }
+        ],
+        [
+          {
+            "node": "Finalize Workflow KPI Payload",
+            "type": "main",
+            "index": 0
+          }
         ]
       ]
     },
@@ -221,6 +282,17 @@
         [
           {
             "node": "Split Batches",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Finalize Workflow KPI Payload": {
+      "main": [
+        [
+          {
+            "node": "Store Workflow KPI",
             "type": "main",
             "index": 0
           }

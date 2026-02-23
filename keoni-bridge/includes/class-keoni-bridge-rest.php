@@ -123,6 +123,12 @@ class Keoni_Bridge_Rest {
             'permission_callback' => [ $this, 'permission_check' ],
         ] );
 
+        register_rest_route( $this->namespace, '/matching-kpi', [
+            'methods'             => WP_REST_Server::CREATABLE,
+            'callback'            => [ $this, 'store_matching_kpi' ],
+            'permission_callback' => [ $this, 'permission_check' ],
+        ] );
+
         register_rest_route( $this->namespace, '/matching/(?P<job_id>\d+)', [
             'methods'             => WP_REST_Server::READABLE,
             'callback'            => [ $this, 'get_matching' ],
@@ -406,6 +412,43 @@ class Keoni_Bridge_Rest {
         return new WP_REST_Response( [ 'inserted' => count( $payload['results'] ) ], 201 );
     }
 
+    public function store_matching_kpi( WP_REST_Request $request ): WP_REST_Response {
+        $payload = $this->get_request_payload( $request );
+
+        $job_id = absint( $payload['job_id'] ?? 0 );
+        if ( $job_id <= 0 ) {
+            return new WP_REST_Response( [ 'message' => 'Payload invalide', 'detail' => 'job_id manquant' ], 400 );
+        }
+
+        $duration_ms = 0;
+        if ( isset( $payload['duration_ms'] ) && is_numeric( $payload['duration_ms'] ) ) {
+            $duration_ms = (int) $payload['duration_ms'];
+        } elseif ( ! empty( $payload['duration_text'] ) ) {
+            $duration_ms = $this->parse_duration_to_ms( (string) $payload['duration_text'] );
+        }
+
+        if ( $duration_ms <= 0 ) {
+            return new WP_REST_Response( [ 'message' => 'Payload invalide', 'detail' => 'duration manquante ou invalide' ], 400 );
+        }
+
+        $saved = Keoni_Bridge_Repository::set_workflow_kpi(
+            $job_id,
+            [
+                'duration_ms'   => $duration_ms,
+                'duration_text' => (string) ( $payload['duration_text'] ?? '' ),
+            ]
+        );
+
+        return new WP_REST_Response(
+            [
+                'saved'       => (bool) $saved,
+                'job_id'      => $job_id,
+                'duration_ms' => $duration_ms,
+            ],
+            201
+        );
+    }
+
     public function get_matching( WP_REST_Request $request ): WP_REST_Response {
         $job_id    = absint( $request['job_id'] );
         $min_score = floatval( $request->get_param( 'min_score' ) );
@@ -519,6 +562,66 @@ class Keoni_Bridge_Rest {
             'metadata'    => $this->normalize_cv_metadata( $resume['cv_metadata'] ?? '' ),
             'updated_at'  => $this->resume_updated_at( $resume ),
         ];
+    }
+
+    private function parse_duration_to_ms( string $value ): int {
+        $value = trim( strtolower( $value ) );
+
+        if ( '' === $value ) {
+            return 0;
+        }
+
+        $hours = 0.0;
+        $mins = 0.0;
+        $secs = 0.0;
+        $millis = 0.0;
+
+        if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*h/', $value, $h ) ) {
+            $hours = (float) $h[1];
+        }
+
+        if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*m(?!s)/', $value, $m ) ) {
+            $mins = (float) $m[1];
+        }
+
+        if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*s(ec)?\b/', $value, $s ) ) {
+            $secs = (float) $s[1];
+        }
+
+        if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*ms/', $value, $ms ) ) {
+            $millis = (float) $ms[1];
+        }
+
+        $total = ( $hours * 3600000.0 ) + ( $mins * 60000.0 ) + ( $secs * 1000.0 ) + $millis;
+        if ( $total > 0 ) {
+            return (int) round( $total );
+        }
+
+        if ( preg_match( '/\b([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}(?:\.[0-9]+)?))?\b/', $value, $parts ) ) {
+            if ( isset( $parts[3] ) ) {
+                $hours = (float) $parts[1];
+                $mins  = (float) $parts[2];
+                $secs  = (float) $parts[3];
+            } else {
+                $hours = 0.0;
+                $mins  = (float) $parts[1];
+                $secs  = (float) $parts[2];
+            }
+
+            $total = ( $hours * 3600000.0 ) + ( $mins * 60000.0 ) + ( $secs * 1000.0 );
+            return (int) round( $total );
+        }
+
+        if ( is_numeric( $value ) ) {
+            $num = (float) $value;
+            if ( $num <= 0 ) {
+                return 0;
+            }
+
+            return $num >= 1000 ? (int) round( $num ) : (int) round( $num * 1000 );
+        }
+
+        return 0;
     }
 
     private function build_resume_text_content( array $resume ): string {

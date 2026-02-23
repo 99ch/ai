@@ -170,6 +170,8 @@ class Keoni_Bridge_Repository {
         );
 
         $duration_ms = null;
+        $workflow_duration_ms = null;
+        $fallback_duration_ms = null;
         $rows = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT extra, updated_at
@@ -196,6 +198,11 @@ class Keoni_Bridge_Repository {
                     continue;
                 }
 
+                $found_workflow = self::extract_workflow_duration_ms_from_extra( $extra );
+                if ( null !== $found_workflow ) {
+                    $workflow_duration_ms = max( (int) ( $workflow_duration_ms ?? 0 ), (int) $found_workflow );
+                }
+
                 $found = self::extract_duration_ms_from_extra( $extra );
 
                 if ( null === $found ) {
@@ -203,9 +210,22 @@ class Keoni_Bridge_Repository {
                 }
 
                 if ( null !== $found ) {
-                    $duration_ms = (int) $found;
-                    break;
+                    $fallback_duration_ms = max( (int) ( $fallback_duration_ms ?? 0 ), (int) $found );
                 }
+            }
+        }
+
+        if ( null !== $workflow_duration_ms ) {
+            $duration_ms = (int) $workflow_duration_ms;
+        } elseif ( null !== $fallback_duration_ms ) {
+            $duration_ms = (int) $fallback_duration_ms;
+        }
+
+        $workflow_kpi = self::get_workflow_kpi( $job_id );
+        if ( isset( $workflow_kpi['duration_ms'] ) && is_numeric( $workflow_kpi['duration_ms'] ) ) {
+            $kpi_duration_ms = (int) $workflow_kpi['duration_ms'];
+            if ( $kpi_duration_ms > 0 ) {
+                $duration_ms = $kpi_duration_ms;
             }
         }
 
@@ -217,6 +237,41 @@ class Keoni_Bridge_Repository {
             'last_updated'     => (string) ( $aggregates['last_updated'] ?? '' ),
             'duration_ms'      => null !== $duration_ms ? (int) $duration_ms : null,
         ];
+    }
+
+    public static function set_workflow_kpi( int $job_id, array $payload ): bool {
+        if ( $job_id <= 0 ) {
+            return false;
+        }
+
+        $duration_ms = isset( $payload['duration_ms'] ) && is_numeric( $payload['duration_ms'] ) ? (int) $payload['duration_ms'] : 0;
+
+        if ( $duration_ms <= 0 ) {
+            return false;
+        }
+
+        $data = [
+            'job_id'       => $job_id,
+            'duration_ms'  => $duration_ms,
+            'duration_text'=> isset( $payload['duration_text'] ) ? (string) $payload['duration_text'] : '',
+            'updated_at'   => current_time( 'mysql', true ),
+        ];
+
+        return (bool) update_option( self::workflow_kpi_option_key( $job_id ), $data, false );
+    }
+
+    public static function get_workflow_kpi( int $job_id ): array {
+        if ( $job_id <= 0 ) {
+            return [];
+        }
+
+        $value = get_option( self::workflow_kpi_option_key( $job_id ), [] );
+
+        return is_array( $value ) ? $value : [];
+    }
+
+    private static function workflow_kpi_option_key( int $job_id ): string {
+        return 'keoni_bridge_workflow_kpi_' . $job_id;
     }
 
     public static function delete_matching_results( int $job_id ): int {
@@ -649,19 +704,112 @@ class Keoni_Bridge_Repository {
             if ( is_string( $raw ) ) {
                 $value = trim( strtolower( $raw ) );
 
-                if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*ms/', $value, $m ) ) {
-                    return (int) round( (float) $m[1] );
-                }
-
-                if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*s(ec)?\b/', $value, $m ) ) {
-                    return (int) round( (float) $m[1] * 1000 );
-                }
-
-                if ( is_numeric( $value ) ) {
-                    $num = (float) $value;
-                    return $num >= 1000 ? (int) round( $num ) : (int) round( $num * 1000 );
+                $parsed_ms = self::parse_duration_string_to_ms( $value );
+                if ( null !== $parsed_ms ) {
+                    return $parsed_ms;
                 }
             }
+        }
+
+        return null;
+    }
+
+    private static function extract_workflow_duration_ms_from_extra( array $extra ): ?int {
+        $keys = [
+            'workflow_duration_ms',
+            'workflow_duration_s',
+            'workflow_duration_sec',
+            'workflow_duration_seconds',
+            'workflow_duration',
+            'workflow_duration_text',
+        ];
+
+        foreach ( $keys as $key ) {
+            if ( ! isset( $extra[ $key ] ) ) {
+                continue;
+            }
+
+            $raw = $extra[ $key ];
+
+            if ( is_numeric( $raw ) ) {
+                $num = (float) $raw;
+                if ( $num <= 0 ) {
+                    continue;
+                }
+
+                if ( str_ends_with( $key, '_ms' ) ) {
+                    return (int) round( $num );
+                }
+
+                if ( in_array( $key, [ 'workflow_duration_s', 'workflow_duration_sec', 'workflow_duration_seconds' ], true ) ) {
+                    return (int) round( $num * 1000 );
+                }
+
+                if ( 'workflow_duration' === $key ) {
+                    return $num >= 1000 ? (int) round( $num ) : (int) round( $num * 1000 );
+                }
+
+                return (int) round( $num );
+            }
+
+            if ( is_string( $raw ) ) {
+                $value = trim( strtolower( $raw ) );
+
+                $parsed_ms = self::parse_duration_string_to_ms( $value );
+                if ( null !== $parsed_ms ) {
+                    return $parsed_ms;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function parse_duration_string_to_ms( string $value ): ?int {
+        if ( '' === $value ) {
+            return null;
+        }
+
+        if ( preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*h/', $value, $h )
+            || preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*m(?!s)/', $value, $m )
+            || preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*s(ec)?\b/', $value, $s )
+            || preg_match( '/([0-9]+(?:\.[0-9]+)?)\s*ms/', $value, $ms ) ) {
+
+            $hours = isset( $h[1] ) ? (float) $h[1] : 0.0;
+            $mins  = isset( $m[1] ) ? (float) $m[1] : 0.0;
+            $secs  = isset( $s[1] ) ? (float) $s[1] : 0.0;
+            $millis= isset( $ms[1] ) ? (float) $ms[1] : 0.0;
+            $total = ( $hours * 3600000.0 ) + ( $mins * 60000.0 ) + ( $secs * 1000.0 ) + $millis;
+
+            if ( $total > 0 ) {
+                return (int) round( $total );
+            }
+        }
+
+        if ( preg_match( '/\b([0-9]{1,2}):([0-9]{1,2})(?::([0-9]{1,2}(?:\.[0-9]+)?))?\b/', $value, $parts ) ) {
+            if ( isset( $parts[3] ) ) {
+                $hours = (float) $parts[1];
+                $mins  = (float) $parts[2];
+                $secs  = (float) $parts[3];
+            } else {
+                $hours = 0.0;
+                $mins  = (float) $parts[1];
+                $secs  = (float) $parts[2];
+            }
+
+            $total = ( $hours * 3600000.0 ) + ( $mins * 60000.0 ) + ( $secs * 1000.0 );
+            if ( $total > 0 ) {
+                return (int) round( $total );
+            }
+        }
+
+        if ( is_numeric( $value ) ) {
+            $num = (float) $value;
+            if ( $num <= 0 ) {
+                return null;
+            }
+
+            return $num >= 1000 ? (int) round( $num ) : (int) round( $num * 1000 );
         }
 
         return null;
