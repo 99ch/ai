@@ -215,18 +215,25 @@ class Keoni_Bridge_Repository {
             }
         }
 
+        $stored_kpi = self::get_workflow_kpi( $job_id );
+        $stored_duration_ms = null;
+        if ( isset( $stored_kpi['duration_ms'] ) && is_numeric( $stored_kpi['duration_ms'] ) ) {
+            $candidate = (int) $stored_kpi['duration_ms'];
+            if ( $candidate > 0 ) {
+                $stored_duration_ms = $candidate;
+            }
+        }
+
         if ( null !== $workflow_duration_ms ) {
             $duration_ms = (int) $workflow_duration_ms;
         } elseif ( null !== $fallback_duration_ms ) {
             $duration_ms = (int) $fallback_duration_ms;
         }
 
-        $workflow_kpi = self::get_workflow_kpi( $job_id );
-        if ( isset( $workflow_kpi['duration_ms'] ) && is_numeric( $workflow_kpi['duration_ms'] ) ) {
-            $kpi_duration_ms = (int) $workflow_kpi['duration_ms'];
-            if ( $kpi_duration_ms > 0 ) {
-                $duration_ms = $kpi_duration_ms;
-            }
+        if ( null !== $stored_duration_ms ) {
+            $duration_ms = null !== $duration_ms
+                ? max( (int) $duration_ms, (int) $stored_duration_ms )
+                : (int) $stored_duration_ms;
         }
 
         return [
@@ -278,8 +285,11 @@ class Keoni_Bridge_Repository {
         global $wpdb;
 
         $table = $wpdb->prefix . 'cv_matching_results';
+        $deleted = (int) $wpdb->delete( $table, [ 'job_id' => $job_id ] );
 
-        return (int) $wpdb->delete( $table, [ 'job_id' => $job_id ] );
+        delete_option( self::workflow_kpi_option_key( $job_id ) );
+
+        return $deleted;
     }
 
     public static function get_resumes_by_emails( array $emails ): array {

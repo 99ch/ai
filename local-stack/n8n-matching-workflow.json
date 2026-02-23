@@ -36,7 +36,7 @@
     },
     {
       "parameters": {
-        "jsCode": "function normalizeList(value) {\n  if (Array.isArray(value)) {\n    return value.map(v => String(v).trim()).filter(Boolean);\n  }\n  if (!value) {\n    return [];\n  }\n  return String(value)\n    .replace(/<[^>]*>/g, ' ')\n    .split(/[,;\\n]+/)\n    .map(v => v.trim())\n    .filter(Boolean);\n}\n\nfunction ensureMetadata(value) {\n  if (!value) {\n    return {};\n  }\n  if (typeof value === 'string') {\n    try {\n      const parsed = JSON.parse(value);\n      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {\n        return parsed;\n      }\n      return {};\n    } catch (error) {\n      return {};\n    }\n  }\n  if (typeof value === 'object' && !Array.isArray(value)) {\n    return value;\n  }\n  return {};\n}\n\nfunction stripHtml(value) {\n  if (!value) {\n    return '';\n  }\n  return String(value).replace(/<[^>]*>/g, ' ');\n}\n\nfunction collectText(cv, meta) {\n  const sources = [\n    cv.title,\n    cv.application_title,\n    cv.job_title,\n    cv.text_content,\n    cv.resume,\n    cv.skills,\n    cv.keywords,\n    cv.description,\n    meta.summary,\n    meta.experience,\n    meta.notes,\n  ].filter(Boolean);\n\n  if (!sources.length) {\n    return '';\n  }\n\n  return sources\n    .map(stripHtml)\n    .join(' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst jobRaw = $json;\nconst cvs = Array.isArray(jobRaw.cvs) ? jobRaw.cvs : [];\nconst normalizedCvs = cvs\n  .map(cv => {\n    const metadata = ensureMetadata(cv.metadata);\n    const combined = collectText(cv, metadata);\n    return {\n      ...cv,\n      metadata,\n      text_content: combined,\n    };\n  })\n  .filter(cv => (cv.text_content || '').length >= 10);\n\nif (!normalizedCvs.length) {\n  return [];\n}\n\nconst job = {\n  id: jobRaw.id,\n  title: jobRaw.title,\n  description: jobRaw.content || jobRaw.description || '',\n  excerpt: jobRaw.excerpt || '',\n  keywords: normalizeList(jobRaw.keywords),\n  location: jobRaw.location || '',\n  meta: jobRaw.meta || {},\n};\n\nconst items = normalizedCvs.map(cv => ({ json: { job, cv } }));\nreturn items;\n"
+        "jsCode": "function normalizeList(value) {\n  if (Array.isArray(value)) {\n    return value.map(v => String(v).trim()).filter(Boolean);\n  }\n  if (!value) {\n    return [];\n  }\n  return String(value)\n    .replace(/<[^>]*>/g, ' ')\n    .split(/[,;\\n]+/)\n    .map(v => v.trim())\n    .filter(Boolean);\n}\n\nfunction ensureMetadata(value) {\n  if (!value) {\n    return {};\n  }\n  if (typeof value === 'string') {\n    try {\n      const parsed = JSON.parse(value);\n      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {\n        return parsed;\n      }\n      return {};\n    } catch (error) {\n      return {};\n    }\n  }\n  if (typeof value === 'object' && !Array.isArray(value)) {\n    return value;\n  }\n  return {};\n}\n\nfunction stripHtml(value) {\n  if (!value) {\n    return '';\n  }\n  return String(value).replace(/<[^>]*>/g, ' ');\n}\n\nfunction collectText(cv, meta) {\n  const sources = [\n    cv.title,\n    cv.application_title,\n    cv.job_title,\n    cv.text_content,\n    cv.resume,\n    cv.skills,\n    cv.keywords,\n    cv.description,\n    meta.summary,\n    meta.experience,\n    meta.notes,\n  ].filter(Boolean);\n\n  if (!sources.length) {\n    return '';\n  }\n\n  return sources\n    .map(stripHtml)\n    .join(' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\nconst jobRaw = $json;\nconst cvs = Array.isArray(jobRaw.cvs) ? jobRaw.cvs : [];\nconst normalizedCvs = cvs\n  .map(cv => {\n    const metadata = ensureMetadata(cv.metadata);\n    const combined = collectText(cv, metadata);\n    return {\n      ...cv,\n      metadata,\n      text_content: combined,\n    };\n  })\n  .filter(cv => (cv.text_content || '').length >= 10);\n\nif (!normalizedCvs.length) {\n  return [];\n}\n\nconst job = {\n  id: jobRaw.id,\n  title: jobRaw.title,\n  description: jobRaw.content || jobRaw.description || '',\n  excerpt: jobRaw.excerpt || '',\n  keywords: normalizeList(jobRaw.keywords),\n  location: jobRaw.location || '',\n  workflow_started_at: jobRaw.workflow_started_at || jobRaw.meta?.workflow_started_at || null,\n  workflow_started_at_ms: Number(jobRaw.workflow_started_at_ms || jobRaw.meta?.workflow_started_at_ms || 0) || null,\n  meta: jobRaw.meta || {},\n};\n\nconst items = normalizedCvs.map(cv => ({ json: { job, cv } }));\nreturn items;\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -132,7 +132,7 @@
             },
             {
               "name": "results",
-              "value": "={{ (() => { const results = Array.isArray($json.results) ? $json.results : []; const executionStart = (typeof $execution === 'object' && ($execution.startedAt || $execution.startTime || $execution.started_at)) ? ($execution.startedAt || $execution.startTime || $execution.started_at) : null; const startedAtMs = Number($json.workflow_started_at_ms || $json.job?.workflow_started_at_ms || $json.job?.meta?.workflow_started_at_ms || $node[\"Build Batch Payload\"].json.workflow_started_at_ms || $node[\"Build Batch Payload\"].json.job?.workflow_started_at_ms || $node[\"Build Batch Payload\"].json.job?.meta?.workflow_started_at_ms || 0); const startedAtIso = $json.workflow_started_at || $json.job?.workflow_started_at || $json.job?.meta?.workflow_started_at || $node[\"Build Batch Payload\"].json.workflow_started_at || $node[\"Build Batch Payload\"].json.job?.workflow_started_at || $node[\"Build Batch Payload\"].json.job?.meta?.workflow_started_at || executionStart; const computedMs = startedAtMs > 0 ? Math.max(0, Date.now() - startedAtMs) : (startedAtIso ? Math.max(0, Date.now() - new Date(startedAtIso).getTime()) : null); const durationMs = $json.workflow_duration_ms || computedMs || $json.duration_ms || null; const durationS = $json.duration_s || $json.duration || $json.execution_time_s || (durationMs ? (durationMs / 1000) : null); const durationText = $json.duration_text || (durationS ? `${Number(durationS).toFixed(2)}s` : null); return results.map(r => ({ ...r, extra: { ...((r && r.extra && typeof r.extra === 'object' && !Array.isArray(r.extra)) ? r.extra : {}), workflow_duration_ms: durationMs, duration_ms: durationMs, duration_s: durationS, duration_text: durationText } })); })() }}"
+              "value": "={{ (() => { const results = Array.isArray($json.results) ? $json.results : []; const executionStart = (typeof $execution === 'object' && ($execution.startedAt || $execution.startTime || $execution.started_at)) ? ($execution.startedAt || $execution.startTime || $execution.started_at) : null; const startedAtMs = Number($json.workflow_started_at_ms || $json.job?.workflow_started_at_ms || $json.job?.meta?.workflow_started_at_ms || $node[\"Build Batch Payload\"].json.workflow_started_at_ms || $node[\"Build Batch Payload\"].json.job?.workflow_started_at_ms || $node[\"Build Batch Payload\"].json.job?.meta?.workflow_started_at_ms || 0); const startedAtIso = $json.workflow_started_at || $json.job?.workflow_started_at || $json.job?.meta?.workflow_started_at || $node[\"Build Batch Payload\"].json.workflow_started_at || $node[\"Build Batch Payload\"].json.job?.workflow_started_at || $node[\"Build Batch Payload\"].json.job?.meta?.workflow_started_at || executionStart; const computedMs = startedAtMs > 0 ? Math.max(0, Date.now() - startedAtMs) : (startedAtIso ? Math.max(0, Date.now() - new Date(startedAtIso).getTime()) : null); const executionDurationRaw = (typeof $execution === 'object' && $execution) ? ($execution.duration || $execution.executionTime || $execution.executionDuration || $execution.time) : null; const executionDurationMs = (typeof executionDurationRaw === 'number' && Number.isFinite(executionDurationRaw)) ? (executionDurationRaw > 1000 ? Math.round(executionDurationRaw) : Math.round(executionDurationRaw * 1000)) : null; const durationMs = executionDurationMs || $json.workflow_duration_ms || computedMs || $json.duration_ms || null; const durationS = $json.duration_s || $json.duration || $json.execution_time_s || (durationMs ? (durationMs / 1000) : null); const durationText = $json.duration_text || (durationS ? `${Number(durationS).toFixed(2)}s` : null); return results.map(r => ({ ...r, extra: { ...((r && r.extra && typeof r.extra === 'object' && !Array.isArray(r.extra)) ? r.extra : {}), workflow_duration_ms: durationMs, duration_ms: durationMs, duration_s: durationS, duration_text: durationText } })); })() }}"
             }
           ]
         },
@@ -146,19 +146,6 @@
       ],
       "id": "74234c91-c31e-42d3-be8d-70705acb8ec3",
       "name": "Store Results"
-    },
-    {
-      "parameters": {
-        "jsCode": "const source = $node[\"Build Batch Payload\"].json || {};\nconst job = source.job || {};\nconst jobId = Number(source.job_id || job.id || 0);\nif (!jobId) {\n  return [];\n}\nconst startedAtMs = Number(source.workflow_started_at_ms || job.workflow_started_at_ms || job.meta?.workflow_started_at_ms || Date.now());\nconst durationMs = Math.max(0, Date.now() - startedAtMs);\nreturn [{ json: { job_id: jobId, duration_ms: durationMs, duration_text: `${(durationMs / 1000).toFixed(3)}s` } }];\n"
-      },
-      "type": "n8n-nodes-base.code",
-      "typeVersion": 2,
-      "position": [
-        520,
-        208
-      ],
-      "id": "6f4a2c95-5fc1-4f84-a28d-f9ed6f1d4a10",
-      "name": "Finalize Workflow KPI Payload"
     },
     {
       "parameters": {
@@ -178,15 +165,15 @@
           "parameters": [
             {
               "name": "job_id",
-              "value": "={{ $json.job_id }}"
+              "value": "={{ $node[\"Build Batch Payload\"].json.job?.id || $node[\"Fetch All CVs\"].json.job?.id || $json.job_id || $json.job?.id }}"
             },
             {
               "name": "duration_ms",
-              "value": "={{ $json.duration_ms }}"
+              "value": "={{ (() => { const startedAt = (typeof $execution === 'object' && $execution && ($execution.startedAt || $execution.startTime || $execution.started_at)) ? ($execution.startedAt || $execution.startTime || $execution.started_at) : null; if (!startedAt) return null; const ms = Date.now() - new Date(startedAt).getTime(); return ms > 0 ? Math.round(ms) : null; })() }}"
             },
             {
               "name": "duration_text",
-              "value": "={{ $json.duration_text }}"
+              "value": "={{ (() => { const startedAt = (typeof $execution === 'object' && $execution && ($execution.startedAt || $execution.startTime || $execution.started_at)) ? ($execution.startedAt || $execution.startTime || $execution.started_at) : null; if (!startedAt) return null; const ms = Date.now() - new Date(startedAt).getTime(); const s = ms > 0 ? (ms / 1000) : 0; return `${Number(s).toFixed(3)}s`; })() }}"
             }
           ]
         },
@@ -195,11 +182,11 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.3,
       "position": [
-        760,
-        208
+        1240,
+        200
       ],
-      "id": "d9b87c44-a90f-4ad0-a6ac-e4e9c6617981",
-      "name": "Store Workflow KPI"
+      "id": "2df5f6e3-4593-4db4-9ca0-688881f2f036",
+      "name": "Store Final KPI"
     }
   ],
   "pinData": {},
@@ -248,7 +235,7 @@
         ],
         [
           {
-            "node": "Finalize Workflow KPI Payload",
+            "node": "Store Final KPI",
             "type": "main",
             "index": 0
           }
@@ -282,17 +269,6 @@
         [
           {
             "node": "Split Batches",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Finalize Workflow KPI Payload": {
-      "main": [
-        [
-          {
-            "node": "Store Workflow KPI",
             "type": "main",
             "index": 0
           }
