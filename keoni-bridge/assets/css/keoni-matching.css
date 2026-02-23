@@ -2,6 +2,7 @@
 	display: grid;
 	gap: 16px;
 	margin: 20px 0;
+	align-items: start;
 }
 
 .keoni-matching-kpis {
@@ -60,6 +61,7 @@
 	padding: 16px;
 	background: #fff;
 	box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+	align-self: start;
 }
 
 .keoni-matching__card--resume {
@@ -390,6 +392,24 @@
 	background: #ffffff;
 }
 
+.keoni-matching__actions .keoni-matching__btn--ghost,
+.keoni-matching__actions .keoni-matching__btn--ghost:visited,
+.keoni-matching__actions button.keoni-matching__btn--ghost,
+.keoni-matching__actions button.keoni-matching__btn--ghost:visited {
+	background-color: #ffffff !important;
+	color: #0b1f4b !important;
+	border-color: #0b1f4b !important;
+}
+
+.keoni-matching__actions .keoni-matching__btn--ghost:hover,
+.keoni-matching__actions .keoni-matching__btn--ghost:focus-visible,
+.keoni-matching__actions button.keoni-matching__btn--ghost:hover,
+.keoni-matching__actions button.keoni-matching__btn--ghost:focus-visible {
+	background-color: #0b1f4b !important;
+	color: #ffffff !important;
+	border-color: #0b1f4b !important;
+}
+
 .keoni-matching__empty {
 	padding: 20px;
 	border: 1px dashed #cbd5e1;
@@ -428,6 +448,12 @@
 
 	.keoni-matching-kpis__item--wide {
 		grid-column: span 1;
+	}
+}
+
+@media (min-width: 1280px) {
+	.keoni-matching {
+		grid-template-columns: repeat(3, minmax(0, 1fr));
 	}
 }
 
