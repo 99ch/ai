@@ -264,8 +264,8 @@
 }
 
 .keoni-matching__section--weaknesses {
-	border-color: #fed7aa;
-	background: #fff7ed;
+	border-color: #fecaca;
+	background: #fef2f2;
 }
 
 .keoni-matching__section--keywords {
@@ -309,10 +309,32 @@
 	font-weight: 600;
 	color: #1e3a8a;
 	border-bottom: 1px solid #e2e8f0;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+}
+
+.keoni-matching__details summary::-webkit-details-marker {
+	display: none;
+}
+
+.keoni-matching__details summary::after {
+	content: "";
+	width: 8px;
+	height: 8px;
+	margin-left: 8px;
+	border-right: 2px solid #1e3a8a;
+	border-bottom: 2px solid #1e3a8a;
+	transform: rotate(45deg);
+	transition: transform 0.2s ease;
 }
 
 .keoni-matching__details[open] summary {
 	background: #f8fafc;
+}
+
+.keoni-matching__details[open] summary::after {
+	transform: rotate(225deg);
 }
 
 .keoni-matching__details > .keoni-matching__section-grid,
@@ -381,9 +403,22 @@
 	width: 100%;
 }
 
+.keoni-matching__resume-actions .keoni-matching__btn--full {
+	width: auto;
+	min-width: 180px;
+	align-self: center;
+}
+
 .keoni-matching__btn--primary {
 	background: #0b1f4b;
 	color: #ffffff;
+}
+
+.keoni-matching__resume-actions .keoni-matching__btn--primary,
+.keoni-matching__resume-actions .keoni-matching__btn--primary:visited,
+.keoni-matching__resume-actions .keoni-matching__btn--primary:hover,
+.keoni-matching__resume-actions .keoni-matching__btn--primary:focus-visible {
+	color: #ffffff !important;
 }
 
 .keoni-matching__btn--ghost {

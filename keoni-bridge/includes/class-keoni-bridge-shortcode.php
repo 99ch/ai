@@ -67,6 +67,9 @@ class Keoni_Bridge_Shortcode {
         $avg_score_label = number_format_i18n( (float) ( $kpis['avg_score'] ?? 0 ), 1 );
         $best_score_label = number_format_i18n( (float) ( $kpis['best_score'] ?? 0 ), 1 );
         $duration_label = self::format_duration_ms( $kpis['duration_ms'] ?? null );
+        $qualified_count = (int) ( $kpis['qualified_count'] ?? 0 );
+        $candidates_count = (int) ( $kpis['candidates_count'] ?? 0 );
+        $qualified_label = number_format_i18n( $qualified_count ) . ' / ' . number_format_i18n( $candidates_count );
         $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id );
         $nonce       = wp_create_nonce( 'keoni_matching' );
         $reset_nonce = wp_create_nonce( 'keoni_bridge_reset_matching' );
@@ -75,7 +78,6 @@ class Keoni_Bridge_Shortcode {
         ?>
         <div class="keoni-matching-wrapper">
         <section class="keoni-matching-kpis" aria-label="<?php echo esc_attr__( 'KPI workflow n8n', 'keoni-bridge' ); ?>">
-            <div class="keoni-matching-kpis__title"><?php esc_html_e( 'KPI workflow n8n', 'keoni-bridge' ); ?></div>
             <div class="keoni-matching-kpis__grid">
                 <article class="keoni-matching-kpis__item">
                     <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Candidats analysés', 'keoni-bridge' ); ?></span>
@@ -92,6 +94,10 @@ class Keoni_Bridge_Shortcode {
                 <article class="keoni-matching-kpis__item">
                     <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Durée exécution', 'keoni-bridge' ); ?></span>
                     <strong class="keoni-matching-kpis__value"><?php echo esc_html( $duration_label ); ?></strong>
+                </article>
+                <article class="keoni-matching-kpis__item">
+                    <span class="keoni-matching-kpis__label"><?php esc_html_e( 'Candidats qualifiés', 'keoni-bridge' ); ?></span>
+                    <strong class="keoni-matching-kpis__value"><?php echo esc_html( $qualified_label ); ?></strong>
                 </article>
             </div>
         </section>
@@ -260,7 +266,7 @@ class Keoni_Bridge_Shortcode {
                         <summary><?php esc_html_e( 'Voir détails', 'keoni-bridge' ); ?></summary>
                         <div class="keoni-matching__section-grid">
                             <div class="keoni-matching__section keoni-matching__section--strengths">
-                                <strong><?php esc_html_e( 'Forces', 'keoni-bridge' ); ?></strong>
+                                <strong><?php esc_html_e( 'POURQUOI CE MATCH', 'keoni-bridge' ); ?></strong>
                                 <?php if ( ! empty( $strengths ) ) : ?>
                                     <ul class="keoni-matching__list">
                                         <?php foreach ( $strengths as $strength ) : ?>

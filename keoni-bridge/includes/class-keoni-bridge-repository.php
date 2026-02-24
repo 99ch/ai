@@ -151,6 +151,7 @@ class Keoni_Bridge_Repository {
             $wpdb->prepare(
                 "SELECT
                     COUNT(*) AS candidates_count,
+                    SUM(CASE WHEN score >= 50 THEN 1 ELSE 0 END) AS qualified_count,
                     AVG(score) AS avg_score,
                     MAX(score) AS best_score,
                     MIN(score) AS min_score,
@@ -238,6 +239,7 @@ class Keoni_Bridge_Repository {
 
         return [
             'candidates_count' => (int) ( $aggregates['candidates_count'] ?? 0 ),
+            'qualified_count'  => (int) ( $aggregates['qualified_count'] ?? 0 ),
             'avg_score'        => isset( $aggregates['avg_score'] ) ? (float) $aggregates['avg_score'] : 0,
             'best_score'       => isset( $aggregates['best_score'] ) ? (float) $aggregates['best_score'] : 0,
             'min_score'        => isset( $aggregates['min_score'] ) ? (float) $aggregates['min_score'] : 0,
