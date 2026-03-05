@@ -78,15 +78,39 @@ class Keoni_Bridge_Repository {
     }
 
     public static function get_matching_results( int $job_id, float $min_score, int $limit, int $offset ): array {
-        global $wpdb;
-
         $limit  = min( 100, max( 1, $limit ) );
         $offset = max( 0, $offset );
+
+        $grouped_rows = self::get_grouped_matching_rows( $job_id, $min_score );
+        $deduped_rows = self::dedupe_matching_rows( $grouped_rows );
+
+        $total = count( $deduped_rows );
+        $items = array_slice( $deduped_rows, $offset, $limit );
+
+        foreach ( $items as $index => &$item ) {
+            $item['strengths'] = json_decode( (string) ( $item['strengths'] ?? '' ), true ) ?: [];
+            $item['weaknesses']= json_decode( (string) ( $item['weaknesses'] ?? '' ), true ) ?: [];
+            $item['keywords']  = json_decode( (string) ( $item['keywords'] ?? '' ), true ) ?: [];
+            $item['extra']     = json_decode( (string) ( $item['extra'] ?? '' ), true ) ?: [];
+            $item['display_rank'] = $offset + $index + 1;
+        }
+        unset( $item );
+
+        return [
+            'items'  => $items,
+            'total'  => $total,
+            'limit'  => $limit,
+            'offset' => $offset,
+        ];
+    }
+
+    private static function get_grouped_matching_rows( int $job_id, float $min_score = 0.0 ): array {
+        global $wpdb;
 
         $table = $wpdb->prefix . 'cv_matching_results';
 
         $query = $wpdb->prepare(
-            "SELECT SQL_CALC_FOUND_ROWS
+            "SELECT
                     cv_id,
                     MAX(score) AS score,
                     MAX(strengths) AS strengths,
@@ -97,44 +121,108 @@ class Keoni_Bridge_Repository {
              FROM {$table}
              WHERE job_id = %d AND score >= %f
              GROUP BY cv_id
-             ORDER BY score DESC
-             LIMIT %d OFFSET %d",
+             ORDER BY score DESC, updated_at DESC",
             $job_id,
-            $min_score,
-            $limit,
-            $offset
+            $min_score
         );
 
-        $items = $wpdb->get_results( $query, ARRAY_A );
-        $total = (int) $wpdb->get_var( 'SELECT FOUND_ROWS()' );
+        $rows = $wpdb->get_results( $query, ARRAY_A );
 
-        foreach ( $items as &$item ) {
-            $item['strengths'] = json_decode( (string) ( $item['strengths'] ?? '' ), true ) ?: [];
-            $item['weaknesses']= json_decode( (string) ( $item['weaknesses'] ?? '' ), true ) ?: [];
-            $item['keywords']  = json_decode( (string) ( $item['keywords'] ?? '' ), true ) ?: [];
-            $item['extra']     = json_decode( (string) ( $item['extra'] ?? '' ), true ) ?: [];
+        return is_array( $rows ) ? $rows : [];
+    }
+
+    private static function dedupe_matching_rows( array $rows ): array {
+        if ( empty( $rows ) ) {
+            return [];
         }
 
-        return [
-            'items'  => $items,
-            'total'  => $total,
-            'limit'  => $limit,
-            'offset' => $offset,
-        ];
+        $cv_ids = array_values( array_unique( array_filter( array_map( 'absint', wp_list_pluck( $rows, 'cv_id' ) ) ) ) );
+        $cv_map = self::get_cvs_by_ids( $cv_ids );
+
+        $by_identity = [];
+
+        foreach ( $rows as $row ) {
+            $cv_id = absint( $row['cv_id'] ?? 0 );
+
+            if ( $cv_id <= 0 ) {
+                continue;
+            }
+
+            $email = '';
+            if ( isset( $cv_map[ $cv_id ]['candidate_email'] ) ) {
+                $email = strtolower( trim( (string) $cv_map[ $cv_id ]['candidate_email'] ) );
+            }
+
+            $identity_key = '' !== $email ? 'email:' . $email : 'cv:' . $cv_id;
+
+            $score = isset( $row['score'] ) ? (float) $row['score'] : 0.0;
+            $updated_at = (string) ( $row['updated_at'] ?? '' );
+
+            if ( ! isset( $by_identity[ $identity_key ] ) ) {
+                $by_identity[ $identity_key ] = $row;
+                continue;
+            }
+
+            $existing_score = isset( $by_identity[ $identity_key ]['score'] )
+                ? (float) $by_identity[ $identity_key ]['score']
+                : 0.0;
+
+            if ( $score > $existing_score ) {
+                $by_identity[ $identity_key ] = $row;
+                continue;
+            }
+
+            if ( $score === $existing_score ) {
+                $current_ts = strtotime( $updated_at ) ?: 0;
+                $existing_ts = strtotime( (string) ( $by_identity[ $identity_key ]['updated_at'] ?? '' ) ) ?: 0;
+
+                if ( $current_ts > $existing_ts ) {
+                    $by_identity[ $identity_key ] = $row;
+                }
+            }
+        }
+
+        $deduped = array_values( $by_identity );
+
+        usort(
+            $deduped,
+            static function ( array $left, array $right ): int {
+                $left_score  = isset( $left['score'] ) ? (float) $left['score'] : 0.0;
+                $right_score = isset( $right['score'] ) ? (float) $right['score'] : 0.0;
+
+                if ( $left_score !== $right_score ) {
+                    return $right_score <=> $left_score;
+                }
+
+                $left_ts  = strtotime( (string) ( $left['updated_at'] ?? '' ) ) ?: 0;
+                $right_ts = strtotime( (string) ( $right['updated_at'] ?? '' ) ) ?: 0;
+
+                return $right_ts <=> $left_ts;
+            }
+        );
+
+        return $deduped;
     }
 
     public static function get_matching_status( int $job_id ): array {
-        global $wpdb;
+        $grouped_rows = self::get_grouped_matching_rows( $job_id, 0.0 );
+        $deduped_rows = self::dedupe_matching_rows( $grouped_rows );
 
-        $table = $wpdb->prefix . 'cv_matching_results';
+        $total = count( $deduped_rows );
+        $last_updated = '';
+        $last_ts = 0;
 
-        $last_updated = $wpdb->get_var(
-            $wpdb->prepare( "SELECT MAX(updated_at) FROM {$table} WHERE job_id = %d", $job_id )
-        );
+        foreach ( $deduped_rows as $row ) {
+            $updated_at = (string) ( $row['updated_at'] ?? '' );
+            $updated_ts = strtotime( $updated_at );
 
-        $total = (int) $wpdb->get_var(
-            $wpdb->prepare( "SELECT COUNT(DISTINCT cv_id) FROM {$table} WHERE job_id = %d", $job_id )
-        );
+            if ( false !== $updated_ts && $updated_ts >= $last_ts ) {
+                $last_ts = $updated_ts;
+                $last_updated = $updated_at;
+            } elseif ( '' === $last_updated && '' !== $updated_at ) {
+                $last_updated = $updated_at;
+            }
+        }
 
         return [
             'total'        => $total,
@@ -147,28 +235,56 @@ class Keoni_Bridge_Repository {
 
         $table = $wpdb->prefix . 'cv_matching_results';
 
-        $aggregates = $wpdb->get_row(
-            $wpdb->prepare(
-                "SELECT
-                    COUNT(*) AS candidates_count,
-                    SUM(CASE WHEN score >= 50 THEN 1 ELSE 0 END) AS qualified_count,
-                    AVG(score) AS avg_score,
-                    MAX(score) AS best_score,
-                    MIN(score) AS min_score,
-                    MAX(updated_at) AS last_updated
-                 FROM (
-                    SELECT
-                        cv_id,
-                        MAX(score) AS score,
-                        MAX(updated_at) AS updated_at
-                    FROM {$table}
-                    WHERE job_id = %d
-                    GROUP BY cv_id
-                 ) grouped",
-                $job_id
-            ),
-            ARRAY_A
-        );
+        $grouped_rows = self::get_grouped_matching_rows( $job_id, 0.0 );
+        $deduped_rows = self::dedupe_matching_rows( $grouped_rows );
+
+        $candidates_count = count( $deduped_rows );
+        $qualified_count  = 0;
+        $avg_score        = 0.0;
+        $best_score       = 0.0;
+        $min_score        = 0.0;
+        $last_updated     = '';
+
+        if ( $candidates_count > 0 ) {
+            $sum_scores = 0.0;
+            $is_first   = true;
+            $last_ts    = 0;
+
+            foreach ( $deduped_rows as $row ) {
+                $score = isset( $row['score'] ) ? (float) $row['score'] : 0.0;
+                $sum_scores += $score;
+
+                if ( $score >= 50 ) {
+                    ++$qualified_count;
+                }
+
+                if ( $is_first ) {
+                    $best_score = $score;
+                    $min_score  = $score;
+                    $is_first   = false;
+                } else {
+                    if ( $score > $best_score ) {
+                        $best_score = $score;
+                    }
+
+                    if ( $score < $min_score ) {
+                        $min_score = $score;
+                    }
+                }
+
+                $updated_at = (string) ( $row['updated_at'] ?? '' );
+                $updated_ts = strtotime( $updated_at );
+
+                if ( false !== $updated_ts && $updated_ts >= $last_ts ) {
+                    $last_ts = $updated_ts;
+                    $last_updated = $updated_at;
+                } elseif ( '' === $last_updated && '' !== $updated_at ) {
+                    $last_updated = $updated_at;
+                }
+            }
+
+            $avg_score = $sum_scores / $candidates_count;
+        }
 
         $duration_ms = null;
         $workflow_duration_ms = null;
@@ -238,12 +354,12 @@ class Keoni_Bridge_Repository {
         }
 
         return [
-            'candidates_count' => (int) ( $aggregates['candidates_count'] ?? 0 ),
-            'qualified_count'  => (int) ( $aggregates['qualified_count'] ?? 0 ),
-            'avg_score'        => isset( $aggregates['avg_score'] ) ? (float) $aggregates['avg_score'] : 0,
-            'best_score'       => isset( $aggregates['best_score'] ) ? (float) $aggregates['best_score'] : 0,
-            'min_score'        => isset( $aggregates['min_score'] ) ? (float) $aggregates['min_score'] : 0,
-            'last_updated'     => (string) ( $aggregates['last_updated'] ?? '' ),
+            'candidates_count' => $candidates_count,
+            'qualified_count'  => $qualified_count,
+            'avg_score'        => $avg_score,
+            'best_score'       => $best_score,
+            'min_score'        => $min_score,
+            'last_updated'     => $last_updated,
             'duration_ms'      => null !== $duration_ms ? (int) $duration_ms : null,
         ];
     }

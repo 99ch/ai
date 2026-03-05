@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-          "jsCode": "const apiKey = 'D=m-4.@O?KGN<hp_;5HG<6)[f#g!!%!f){xc~yY<*(=rpQf2B*{G+kxg0*S(XG2t';\nconst cvsBaseUrl = 'http://192.168.1.29:8080/wp-json/keoni/v1/cvs';\nconst jobBaseUrl = 'http://192.168.1.29:8080/wp-json/keoni/v1/job';\nconst chunkSize = 200;\nconst limit = 100;\nconst maxCvCount = 300;\nlet offset = 0;\nconst usable = [];\n\nconst jobPostId = $json?.body?.job_post_id;\nif (!jobPostId) {\n  throw new Error('Missing job_post_id in webhook payload');\n}\nconst workflowStartedAtMs = Number($json?.body?.workflow_started_at_ms || $json?.workflow_started_at_ms || Date.now());\nconst workflowStartedAt = $json?.body?.workflow_started_at || $json?.workflow_started_at || new Date(workflowStartedAtMs).toISOString();\n\nconst stripHtml = (value) => {\n  if (!value) return '';\n  return String(value).replace(/<[^>]*>/g, ' ');\n};\n\nconst hasText = (cv) => {\n  const sources = [\n    cv.title,\n    cv.application_title,\n    cv.job_title,\n    cv.resume,\n    cv.skills,\n    cv.keywords,\n    cv.text_content,\n    cv.description,\n  ];\n  const combined = stripHtml(sources.filter(Boolean).join(' '))\n    .replace(/\\s+/g, ' ')\n    .trim();\n  return combined.length >= 10;\n};\n\nconst headers = { 'X-API-Key': apiKey };\nconst job = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${jobBaseUrl}/${jobPostId}` ,\n  headers,\n});\njob.workflow_started_at = workflowStartedAt;\njob.workflow_started_at_ms = workflowStartedAtMs;\njob.meta = (job && typeof job.meta === 'object' && job.meta) ? job.meta : {};\njob.meta.workflow_started_at = workflowStartedAt;\njob.meta.workflow_started_at_ms = workflowStartedAtMs;\n\nwhile (usable.length < maxCvCount) {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${cvsBaseUrl}?offset=${offset}&limit=${limit}` ,\n    headers,\n  });\n\n  const items = Array.isArray(response.items) ? response.items : [];\n  const filtered = items.filter(hasText);\n  if (filtered.length) {\n    usable.push(...filtered);\n  }\n\n  if (items.length < limit) {\n    break;\n  }\n\n  offset += limit;\n}\n\nif (!usable.length) {\n  return [{ json: { ...job, cvs: [], workflow_started_at: workflowStartedAt, workflow_started_at_ms: workflowStartedAtMs } }];\n}\n\nconst selected = usable.slice(0, maxCvCount);\nconst chunks = [];\nfor (let i = 0; i < selected.length; i += chunkSize) {\n  const copy = JSON.parse(JSON.stringify(job));\n  copy.cvs = selected.slice(i, i + chunkSize);\n  copy.workflow_started_at = workflowStartedAt;\n  copy.workflow_started_at_ms = workflowStartedAtMs;\n  chunks.push({ json: copy });\n}\n\nreturn chunks;\n"
+          "jsCode": "const apiKey = '>NLdSPG#.lnEefX/s-[SdStbgfH@bhN/NJvRYGTjO=cdoXAJRV$,5r}>;ByDA#v(';\nconst cvsBaseUrl = 'http://192.168.1.31:8080/wp-json/keoni/v1/cvs';\nconst jobBaseUrl = 'http://192.168.1.31:8080/wp-json/keoni/v1/job';\nconst chunkSize = 200;\nconst limit = 100;\nconst maxCvCount = 300;\nlet offset = 0;\nconst usable = [];\n\nconst jobPostId = $json?.body?.job_post_id;\nif (!jobPostId) {\n  throw new Error('Missing job_post_id in webhook payload');\n}\nconst workflowStartedAtMs = Number($json?.body?.workflow_started_at_ms || $json?.workflow_started_at_ms || Date.now());\nconst workflowStartedAt = $json?.body?.workflow_started_at || $json?.workflow_started_at || new Date(workflowStartedAtMs).toISOString();\n\nconst stripHtml = (value) => {\n  if (!value) return '';\n  return String(value).replace(/<[^>]*>/g, ' ');\n};\n\nconst hasText = (cv) => {\n  const sources = [\n    cv.title,\n    cv.application_title,\n    cv.job_title,\n    cv.resume,\n    cv.skills,\n    cv.keywords,\n    cv.text_content,\n    cv.description,\n  ];\n  const combined = stripHtml(sources.filter(Boolean).join(' '))\n    .replace(/\\s+/g, ' ')\n    .trim();\n  return combined.length >= 10;\n};\n\nconst headers = { 'X-API-Key': apiKey };\nconst job = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${jobBaseUrl}/${jobPostId}` ,\n  headers,\n});\njob.workflow_started_at = workflowStartedAt;\njob.workflow_started_at_ms = workflowStartedAtMs;\njob.meta = (job && typeof job.meta === 'object' && job.meta) ? job.meta : {};\njob.meta.workflow_started_at = workflowStartedAt;\njob.meta.workflow_started_at_ms = workflowStartedAtMs;\n\nwhile (usable.length < maxCvCount) {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${cvsBaseUrl}?offset=${offset}&limit=${limit}` ,\n    headers,\n  });\n\n  const items = Array.isArray(response.items) ? response.items : [];\n  const filtered = items.filter(hasText);\n  if (filtered.length) {\n    usable.push(...filtered);\n  }\n\n  if (items.length < limit) {\n    break;\n  }\n\n  offset += limit;\n}\n\nif (!usable.length) {\n  return [{ json: { ...job, cvs: [], workflow_started_at: workflowStartedAt, workflow_started_at_ms: workflowStartedAtMs } }];\n}\n\nconst selected = usable.slice(0, maxCvCount);\nconst chunks = [];\nfor (let i = 0; i < selected.length; i += chunkSize) {\n  const copy = JSON.parse(JSON.stringify(job));\n  copy.cvs = selected.slice(i, i + chunkSize);\n  copy.workflow_started_at = workflowStartedAt;\n  copy.workflow_started_at_ms = workflowStartedAtMs;\n  chunks.push({ json: copy });\n}\n\nreturn chunks;\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -76,7 +76,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.29:8000/score",
+        "url": "http://192.168.1.31:8000/score",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
@@ -113,13 +113,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.29:8080/wp-json/keoni/v1/matching",
+        "url": "http://192.168.1.31:8080/wp-json/keoni/v1/matching",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-API-Key",
-              "value": "D=m-4.@O?KGN<hp_;5HG<6)[f#g!!%!f){xc~yY<*(=rpQf2B*{G+kxg0*S(XG2t"
+              "value": ">NLdSPG#.lnEefX/s-[SdStbgfH@bhN/NJvRYGTjO=cdoXAJRV$,5r}>;ByDA#v("
             }
           ]
         },
@@ -150,13 +150,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.29:8080/wp-json/keoni/v1/matching-kpi",
+        "url": "http://192.168.1.31:8080/wp-json/keoni/v1/matching-kpi",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-API-Key",
-              "value": "D=m-4.@O?KGN<hp_;5HG<6)[f#g!!%!f){xc~yY<*(=rpQf2B*{G+kxg0*S(XG2t"
+              "value": ">NLdSPG#.lnEefX/s-[SdStbgfH@bhN/NJvRYGTjO=cdoXAJRV$,5r}>;ByDA#v("
             }
           ]
         },

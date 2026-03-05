@@ -21,9 +21,9 @@ services:
     networks:
       - keoni_net
 
-  192.168.1.29:
+  192.168.1.31:
     build:
-      context: ./services/192.168.1.29
+      context: ./services/192.168.1.31
       dockerfile: Dockerfile
     container_name: keoni_matching_api
     env_file: .env
@@ -58,7 +58,7 @@ services:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_RUNNERS_TASK_TIMEOUT: 900
       N8N_SECURE_COOKIE: "false"
-      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://192.168.1.29:5678}
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL:-http://192.168.1.31:5678}
     depends_on:
       - db
     ports:
