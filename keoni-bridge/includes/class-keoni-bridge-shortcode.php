@@ -101,6 +101,11 @@ class Keoni_Bridge_Shortcode {
                 </article>
             </div>
         </section>
+        <div class="keoni-matching-filters" role="group" aria-label="<?php echo esc_attr__( 'Filtre rapide des candidats', 'keoni-bridge' ); ?>">
+            <button type="button" class="keoni-matching-filter is-active" data-keoni-filter="all"><?php esc_html_e( 'Tous', 'keoni-bridge' ); ?></button>
+            <button type="button" class="keoni-matching-filter" data-keoni-filter="qualified"><?php esc_html_e( 'Qualifiés', 'keoni-bridge' ); ?></button>
+            <button type="button" class="keoni-matching-filter" data-keoni-filter="strong"><?php esc_html_e( 'Match fort', 'keoni-bridge' ); ?></button>
+        </div>
         <div class="keoni-matching">
             <?php echo $cards_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
         </div>
@@ -205,9 +210,24 @@ class Keoni_Bridge_Shortcode {
             }
 
             $score_percent = max( 0, min( 100, $score ) );
+            $match_level = 'low';
+            $match_label = __( 'Match faible', 'keoni-bridge' );
+
+            if ( $score >= 80 ) {
+                $match_level = 'strong';
+                $match_label = __( 'Match fort', 'keoni-bridge' );
+            } elseif ( $score >= 60 ) {
+                $match_level = 'medium';
+                $match_label = __( 'Match moyen', 'keoni-bridge' );
+            }
+
+            $is_qualified = $score >= 50;
             $details_open  = ( 1 === $rank_value ) ? ' open' : '';
             ?>
-            <article class="keoni-matching__card keoni-matching__card--resume">
+            <article class="keoni-matching__card keoni-matching__card--resume"
+                     data-score="<?php echo esc_attr( number_format( $score, 2, '.', '' ) ); ?>"
+                     data-match-level="<?php echo esc_attr( $match_level ); ?>"
+                     data-qualified="<?php echo esc_attr( $is_qualified ? '1' : '0' ); ?>">
                 <div class="keoni-matching__body">
                     <div class="keoni-matching__top">
                         <div class="keoni-matching__avatar">
@@ -216,6 +236,7 @@ class Keoni_Bridge_Shortcode {
                         <div class="keoni-matching__identity">
                             <h3 class="keoni-matching__resume-name"><?php echo esc_html( $name ); ?></h3>
                             <div class="keoni-matching__identity-badges">
+                                <span class="keoni-matching__chip keoni-matching__chip--match keoni-matching__chip--match-<?php echo esc_attr( $match_level ); ?>"><?php echo esc_html( $match_label ); ?></span>
                                 <?php if ( $job_type ) : ?>
                                     <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $job_type ); ?></span>
                                 <?php endif; ?>
@@ -278,7 +299,7 @@ class Keoni_Bridge_Shortcode {
                                 <?php endif; ?>
                             </div>
                             <div class="keoni-matching__section keoni-matching__section--weaknesses">
-                                <strong><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></strong>
+                                <strong><?php esc_html_e( 'Compétences manquantes critiques', 'keoni-bridge' ); ?></strong>
                                 <?php if ( ! empty( $weaknesses ) ) : ?>
                                     <ul class="keoni-matching__list">
                                         <?php foreach ( $weaknesses as $weakness ) : ?>
@@ -286,7 +307,7 @@ class Keoni_Bridge_Shortcode {
                                         <?php endforeach; ?>
                                     </ul>
                                 <?php else : ?>
-                                    <p><?php esc_html_e( 'Aucun signal particulier.', 'keoni-bridge' ); ?></p>
+                                    <p><?php esc_html_e( 'Aucune compétence critique manquante détectée.', 'keoni-bridge' ); ?></p>
                                 <?php endif; ?>
                             </div>
                         </div>
