@@ -198,13 +198,9 @@ class Keoni_Bridge_Shortcode {
             }
 
             $rank_label = '';
-            $rank_value = isset( $item['display_rank'] ) ? (int) $item['display_rank'] : 0;
-
-            if ( $rank_value <= 0 && isset( $item['extra']['rank'] ) ) {
+            $rank_value = 0;
+            if ( isset( $item['extra']['rank'] ) ) {
                 $rank_value = (int) $item['extra']['rank'];
-            }
-
-            if ( $rank_value > 0 ) {
                 $rank_label = sprintf( __( 'Rang #%d', 'keoni-bridge' ), $rank_value );
             }
 
