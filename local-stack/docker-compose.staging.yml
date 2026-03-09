@@ -1,0 +1,74 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: keoni_db_staging
+    restart: unless-stopped
+    env_file: .env.staging
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./volumes/staging/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - keoni_net
+
+  matching-api:
+    image: ${MATCHING_API_IMAGE}:${IMAGE_TAG}
+    container_name: keoni_matching_api_staging
+    restart: unless-stopped
+    env_file: .env.staging
+    environment:
+      MATCHING_API_KEY: ${MATCHING_API_KEY}
+      MODEL_CACHE: /models
+      DATA_DIR: /data/cv_raw
+      MATCHING_PRELOAD_MODEL: ${MATCHING_PRELOAD_MODEL:-1}
+      MATCHING_MIN_TITLE_HITS: ${MATCHING_MIN_TITLE_HITS:-3}
+      POSTGRES_DSN: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      TZ: ${TIMEZONE}
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./volumes/models:/models
+      - ./volumes/data/cv_raw:/data/cv_raw
+    networks:
+      - keoni_net
+
+  n8n:
+    image: n8nio/n8n:1.82.1
+    container_name: keoni_n8n_staging
+    restart: unless-stopped
+    env_file: .env.staging
+    environment:
+      GENERIC_TIMEZONE: ${TIMEZONE}
+      N8N_BASIC_AUTH_ACTIVE: "true"
+      N8N_BASIC_AUTH_USER: ${N8N_BASIC_AUTH_USER}
+      N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
+      N8N_RUNNERS_TASK_TIMEOUT: 900
+      N8N_SECURE_COOKIE: "true"
+      WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+      WP_API_BASE_URL: ${WP_API_BASE_URL}
+      MATCHING_API_BASE_URL: ${MATCHING_API_BASE_URL}
+      WP_API_KEY: ${WP_API_KEY}
+      MATCHING_API_KEY: ${MATCHING_API_KEY}
+    depends_on:
+      - db
+    ports:
+      - "5678:5678"
+    volumes:
+      - ./volumes/staging/n8n:/home/node/.n8n
+    networks:
+      - keoni_net
+
+networks:
+  keoni_net:
+    driver: bridge

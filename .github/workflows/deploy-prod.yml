@@ -1,0 +1,99 @@
+name: Deploy Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (example: sha-<commit>)"
+        required: true
+        default: "staging"
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/keoni-matching-api
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      IMAGE_TAG: ${{ inputs.image_tag }}
+    steps:
+      - name: Deploy on production server via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          MATCHING_API_IMAGE: ${{ env.IMAGE_NAME }}
+        with:
+          host: ${{ secrets.PROD_SSH_HOST }}
+          username: ${{ secrets.PROD_SSH_USER }}
+          key: ${{ secrets.PROD_SSH_KEY }}
+          port: ${{ secrets.PROD_SSH_PORT || '22' }}
+          envs: IMAGE_TAG,MATCHING_API_IMAGE
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.PROD_DEPLOY_PATH }}"
+            test -f .env.prod
+            export IMAGE_TAG="$IMAGE_TAG"
+            export MATCHING_API_IMAGE="$MATCHING_API_IMAGE"
+            docker compose --env-file .env.prod -f docker-compose.prod.yml pull
+            docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --remove-orphans
+
+      - name: Smoke API health
+        run: |
+          set -euo pipefail
+          curl -fsS "${{ secrets.PROD_API_URL }}/health" > /tmp/api-health.json
+          cat /tmp/api-health.json
+
+      - name: Smoke n8n health
+        run: |
+          set -euo pipefail
+          curl -fsS "${{ secrets.PROD_N8N_URL }}/healthz" > /tmp/n8n-health.json
+          cat /tmp/n8n-health.json
+
+      - name: E2E smoke WP -> n8n -> API -> results
+        if: ${{ secrets.PROD_WEBHOOK_URL != '' && secrets.PROD_WEBHOOK_SECRET != '' && secrets.PROD_JOB_ID != '' && secrets.PROD_WP_URL != '' }}
+        env:
+          PROD_WEBHOOK_URL: ${{ secrets.PROD_WEBHOOK_URL }}
+          PROD_WEBHOOK_SECRET: ${{ secrets.PROD_WEBHOOK_SECRET }}
+          PROD_JOB_ID: ${{ secrets.PROD_JOB_ID }}
+          PROD_WP_URL: ${{ secrets.PROD_WP_URL }}
+        run: |
+          set -euo pipefail
+          started_ms=$(python - <<'PY'
+          import time
+          print(int(time.time() * 1000))
+          PY
+          )
+
+          curl -fsS -X POST "$PROD_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $PROD_WEBHOOK_SECRET" \
+            -d "{\"job_post_id\":$PROD_JOB_ID,\"workflow_started_at_ms\":$started_ms}"
+
+          ok=0
+          for i in $(seq 1 20); do
+            count=$(curl -fsS "$PROD_WP_URL/wp-json/keoni/v1/matching/$PROD_JOB_ID?limit=1" | python - <<'PY'
+          import json, sys
+          payload = json.load(sys.stdin)
+          print(int(payload.get('count', 0)))
+          PY
+            )
+            if [ "$count" -gt 0 ]; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "No matching result observed for job $PROD_JOB_ID"
+            exit 1
+          fi

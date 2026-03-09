@@ -23,7 +23,7 @@
     },
     {
       "parameters": {
-          "jsCode": "const apiKey = '>NLdSPG#.lnEefX/s-[SdStbgfH@bhN/NJvRYGTjO=cdoXAJRV$,5r}>;ByDA#v(';\nconst cvsBaseUrl = 'http://192.168.1.31:8080/wp-json/keoni/v1/cvs';\nconst jobBaseUrl = 'http://192.168.1.31:8080/wp-json/keoni/v1/job';\nconst chunkSize = 200;\nconst limit = 100;\nconst maxCvCount = 300;\nlet offset = 0;\nconst usable = [];\n\nconst jobPostId = $json?.body?.job_post_id;\nif (!jobPostId) {\n  throw new Error('Missing job_post_id in webhook payload');\n}\nconst workflowStartedAtMs = Number($json?.body?.workflow_started_at_ms || $json?.workflow_started_at_ms || Date.now());\nconst workflowStartedAt = $json?.body?.workflow_started_at || $json?.workflow_started_at || new Date(workflowStartedAtMs).toISOString();\n\nconst stripHtml = (value) => {\n  if (!value) return '';\n  return String(value).replace(/<[^>]*>/g, ' ');\n};\n\nconst hasText = (cv) => {\n  const sources = [\n    cv.title,\n    cv.application_title,\n    cv.job_title,\n    cv.resume,\n    cv.skills,\n    cv.keywords,\n    cv.text_content,\n    cv.description,\n  ];\n  const combined = stripHtml(sources.filter(Boolean).join(' '))\n    .replace(/\\s+/g, ' ')\n    .trim();\n  return combined.length >= 10;\n};\n\nconst headers = { 'X-API-Key': apiKey };\nconst job = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${jobBaseUrl}/${jobPostId}` ,\n  headers,\n});\njob.workflow_started_at = workflowStartedAt;\njob.workflow_started_at_ms = workflowStartedAtMs;\njob.meta = (job && typeof job.meta === 'object' && job.meta) ? job.meta : {};\njob.meta.workflow_started_at = workflowStartedAt;\njob.meta.workflow_started_at_ms = workflowStartedAtMs;\n\nwhile (usable.length < maxCvCount) {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${cvsBaseUrl}?offset=${offset}&limit=${limit}` ,\n    headers,\n  });\n\n  const items = Array.isArray(response.items) ? response.items : [];\n  const filtered = items.filter(hasText);\n  if (filtered.length) {\n    usable.push(...filtered);\n  }\n\n  if (items.length < limit) {\n    break;\n  }\n\n  offset += limit;\n}\n\nif (!usable.length) {\n  return [{ json: { ...job, cvs: [], workflow_started_at: workflowStartedAt, workflow_started_at_ms: workflowStartedAtMs } }];\n}\n\nconst selected = usable.slice(0, maxCvCount);\nconst chunks = [];\nfor (let i = 0; i < selected.length; i += chunkSize) {\n  const copy = JSON.parse(JSON.stringify(job));\n  copy.cvs = selected.slice(i, i + chunkSize);\n  copy.workflow_started_at = workflowStartedAt;\n  copy.workflow_started_at_ms = workflowStartedAtMs;\n  chunks.push({ json: copy });\n}\n\nreturn chunks;\n"
+          "jsCode": "const apiKey = $env.WP_API_KEY || '';\nif (!apiKey) throw new Error('Missing WP_API_KEY env variable in n8n.');\nconst expectedWebhookSecret = $env.N8N_WEBHOOK_SECRET || '';\nif (!expectedWebhookSecret) throw new Error('Missing N8N_WEBHOOK_SECRET env variable in n8n.');\nconst incomingSecret = String($json?.headers?.['x-api-key'] || $json?.headers?.['X-API-Key'] || '').trim();\nif (!incomingSecret || incomingSecret !== expectedWebhookSecret) {\n  throw new Error('Unauthorized webhook call: invalid X-API-Key.');\n}\nconst wpBase = ($env.WP_API_BASE_URL || 'http://wordpress:80').replace(/\/$/, '');\nconst cvsBaseUrl = `${wpBase}/wp-json/keoni/v1/cvs`;\nconst jobBaseUrl = `${wpBase}/wp-json/keoni/v1/job`;\nconst chunkSize = 200;\nconst limit = 100;\nconst maxCvCount = 300;\nlet offset = 0;\nconst usable = [];\n\nconst jobPostId = $json?.body?.job_post_id;\nif (!jobPostId) {\n  throw new Error('Missing job_post_id in webhook payload');\n}\nconst workflowStartedAtMs = Number($json?.body?.workflow_started_at_ms || $json?.workflow_started_at_ms || Date.now());\nconst workflowStartedAt = $json?.body?.workflow_started_at || $json?.workflow_started_at || new Date(workflowStartedAtMs).toISOString();\n\nconst stripHtml = (value) => {\n  if (!value) return '';\n  return String(value).replace(/<[^>]*>/g, ' ');\n};\n\nconst hasText = (cv) => {\n  const sources = [\n    cv.title,\n    cv.application_title,\n    cv.job_title,\n    cv.resume,\n    cv.skills,\n    cv.keywords,\n    cv.text_content,\n    cv.description,\n  ];\n  const combined = stripHtml(sources.filter(Boolean).join(' '))\n    .replace(/\\s+/g, ' ')\n    .trim();\n  return combined.length >= 10;\n};\n\nconst headers = { 'X-API-Key': apiKey };\nconst job = await this.helpers.httpRequest({\n  method: 'GET',\n  url: `${jobBaseUrl}/${jobPostId}` ,\n  headers,\n});\njob.workflow_started_at = workflowStartedAt;\njob.workflow_started_at_ms = workflowStartedAtMs;\njob.meta = (job && typeof job.meta === 'object' && job.meta) ? job.meta : {};\njob.meta.workflow_started_at = workflowStartedAt;\njob.meta.workflow_started_at_ms = workflowStartedAtMs;\n\nwhile (usable.length < maxCvCount) {\n  const response = await this.helpers.httpRequest({\n    method: 'GET',\n    url: `${cvsBaseUrl}?offset=${offset}&limit=${limit}` ,\n    headers,\n  });\n\n  const items = Array.isArray(response.items) ? response.items : [];\n  const filtered = items.filter(hasText);\n  if (filtered.length) {\n    usable.push(...filtered);\n  }\n\n  if (items.length < limit) {\n    break;\n  }\n\n  offset += limit;\n}\n\nif (!usable.length) {\n  return [{ json: { ...job, cvs: [], workflow_started_at: workflowStartedAt, workflow_started_at_ms: workflowStartedAtMs } }];\n}\n\nconst selected = usable.slice(0, maxCvCount);\nconst chunks = [];\nfor (let i = 0; i < selected.length; i += chunkSize) {\n  const copy = JSON.parse(JSON.stringify(job));\n  copy.cvs = selected.slice(i, i + chunkSize);\n  copy.workflow_started_at = workflowStartedAt;\n  copy.workflow_started_at_ms = workflowStartedAtMs;\n  chunks.push({ json: copy });\n}\n\nreturn chunks;\n"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -76,13 +76,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.31:8000/score",
+        "url": "={{ (($env.MATCHING_API_BASE_URL || 'http://matching-api:8000').replace(/\/$/, '')) + '/score' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-API-Key",
-              "value": "b6f79b4a1c3849e9b3e4c41c6a1fcb32"
+              "value": "={{ $env.MATCHING_API_KEY }}"
             }
           ]
         },
@@ -113,13 +113,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.31:8080/wp-json/keoni/v1/matching",
+        "url": "={{ (($env.WP_API_BASE_URL || 'http://wordpress:80').replace(/\/$/, '')) + '/wp-json/keoni/v1/matching' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-API-Key",
-              "value": ">NLdSPG#.lnEefX/s-[SdStbgfH@bhN/NJvRYGTjO=cdoXAJRV$,5r}>;ByDA#v("
+              "value": "={{ $env.WP_API_KEY }}"
             }
           ]
         },
@@ -150,13 +150,13 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.1.31:8080/wp-json/keoni/v1/matching-kpi",
+        "url": "={{ (($env.WP_API_BASE_URL || 'http://wordpress:80').replace(/\/$/, '')) + '/wp-json/keoni/v1/matching-kpi' }}",
         "sendHeaders": true,
         "headerParameters": {
           "parameters": [
             {
               "name": "X-API-Key",
-              "value": ">NLdSPG#.lnEefX/s-[SdStbgfH@bhN/NJvRYGTjO=cdoXAJRV$,5r}>;ByDA#v("
+              "value": "={{ $env.WP_API_KEY }}"
             }
           ]
         },

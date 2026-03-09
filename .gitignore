@@ -1,0 +1,26 @@
+# OS
+.DS_Store
+**/.DS_Store
+
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local environment files
+local-stack/.env
+local-stack/.env.prod
+
+# Local runtime data
+local-stack/volumes/**
+
+# Large local debug exports
+Fetch_All_CVs-2.json
+Normalize.json
+splitBatch.json
+Build_Batch_Payload.json
+scoreBatch.json
+
+# Local archives
+*.zip

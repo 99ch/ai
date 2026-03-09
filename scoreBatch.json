@@ -1,0 +1,145 @@
+[
+  {
+    "job_id": 1247,
+    "count": 1,
+    "duration_ms": 9218,
+    "results": [
+      {
+        "cv_id": 27924,
+        "score": 23.82,
+        "strengths": [
+          "Titre proche (développeur)"
+        ],
+        "weaknesses": [
+          "Aucun mot-clé commun identifié"
+        ],
+        "keywords": [],
+        "extra": {
+          "vector_similarity": 0.1974,
+          "keyword_hits": [],
+          "rank": 1
+        }
+      }
+    ]
+  }
+][
+  {
+    "job_id": 1247,
+    "count": 1,
+    "duration_ms": 7195,
+    "results": [
+      {
+        "cv_id": 27950,
+        "score": 12.43,
+        "strengths": [],
+        "weaknesses": [
+          "Aucun mot-clé commun identifié",
+          "Titre éloigné du besoin"
+        ],
+        "keywords": [],
+        "extra": {
+          "vector_similarity": 0.1775,
+          "keyword_hits": [],
+          "rank": 1
+        }
+      }
+    ]
+  }
+][
+  {
+    "job_id": 1247,
+    "count": 3,
+    "duration_ms": 7749,
+    "results": [
+      {
+        "cv_id": 28048,
+        "score": 30.54,
+        "strengths": [
+          "Titre proche (senior)"
+        ],
+        "weaknesses": [
+          "Aucun mot-clé commun identifié"
+        ],
+        "keywords": [],
+        "extra": {
+          "vector_similarity": 0.2935,
+          "keyword_hits": [],
+          "rank": 1
+        }
+      },
+      {
+        "cv_id": 28016,
+        "score": 31.22,
+        "strengths": [
+          "Mots-clés (oracle)",
+          "Titre proche (oracle)"
+        ],
+        "weaknesses": [],
+        "keywords": [
+          "oracle"
+        ],
+        "extra": {
+          "vector_similarity": 0.2317,
+          "keyword_hits": [
+            "oracle"
+          ],
+          "rank": 2
+        }
+      },
+      {
+        "cv_id": 28011,
+        "score": 24.09,
+        "strengths": [
+          "Titre proche (développeur)"
+        ],
+        "weaknesses": [
+          "Aucun mot-clé commun identifié"
+        ],
+        "keywords": [],
+        "extra": {
+          "vector_similarity": 0.2013,
+          "keyword_hits": [],
+          "rank": 3
+        }
+      }
+    ]
+  }
+][
+  {
+    "job_id": 1247,
+    "count": 2,
+    "duration_ms": 7678,
+    "results": [
+      {
+        "cv_id": 28087,
+        "score": 16.19,
+        "strengths": [],
+        "weaknesses": [
+          "Aucun mot-clé commun identifié",
+          "Titre éloigné du besoin"
+        ],
+        "keywords": [],
+        "extra": {
+          "vector_similarity": 0.2312,
+          "keyword_hits": [],
+          "rank": 1
+        }
+      },
+      {
+        "cv_id": 28067,
+        "score": 14.67,
+        "strengths": [],
+        "weaknesses": [
+          "Aucun mot-clé commun identifié",
+          "Titre éloigné du besoin"
+        ],
+        "keywords": [],
+        "extra": {
+          "vector_similarity": 0.2096,
+          "keyword_hits": [],
+          "rank": 2
+        }
+      }
+    ]
+  }
+]

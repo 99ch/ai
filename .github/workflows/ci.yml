@@ -1,0 +1,122 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  api-static-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Ruff
+        run: pip install ruff==0.9.10
+
+      - name: Ruff check
+        run: ruff check local-stack/services/matching-api/app
+
+      - name: Python syntax check
+        run: python -m compileall -q local-stack/services/matching-api/app
+
+      - name: Validate n8n workflow JSON
+        run: python -m json.tool local-stack/n8n-matching-workflow.json > /dev/null
+
+  compose-validate:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_USER: ci
+      POSTGRES_PASSWORD: ci
+      POSTGRES_DB: ci
+      MATCHING_API_KEY: ci
+      WP_API_KEY: ci
+      MATCHING_API_IMAGE: ghcr.io/example/keoni-matching-api
+      IMAGE_TAG: ci
+      N8N_BASIC_AUTH_USER: ci
+      N8N_BASIC_AUTH_PASSWORD: ci
+      N8N_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      N8N_WEBHOOK_SECRET: ci
+      N8N_WEBHOOK_URL: https://n8n.ci.local
+      MATCHING_API_BASE_URL: http://matching-api:8000
+      WP_API_BASE_URL: http://wordpress:80
+      TIMEZONE: Europe/Paris
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Prepare env files for compose validation
+        run: |
+          cp local-stack/.env.example local-stack/.env.staging
+          cp local-stack/.env.prod.example local-stack/.env.prod
+
+      - name: Validate local compose
+        run: docker compose -f local-stack/docker-compose.yml config > /dev/null
+
+      - name: Validate staging compose
+        run: docker compose -f local-stack/docker-compose.staging.yml config > /dev/null
+
+      - name: Validate prod compose
+        run: docker compose -f local-stack/docker-compose.prod.yml config > /dev/null
+
+  secret-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ensure runtime .env is not tracked
+        run: |
+          set -euo pipefail
+          if git ls-files --error-unmatch local-stack/.env >/dev/null 2>&1; then
+            echo "local-stack/.env is tracked by git. Remove it from index and keep only .env.example/.env.prod.example"
+            exit 1
+          fi
+
+      - name: Block hardcoded n8n API keys
+        run: |
+          python - <<'PY'
+          import json
+          import re
+          import sys
+
+          path = "local-stack/n8n-matching-workflow.json"
+          with open(path, "r", encoding="utf-8") as f:
+              workflow = json.load(f)
+
+          hardcoded = []
+
+          for node in workflow.get("nodes", []):
+              node_name = node.get("name", "unknown")
+              params = node.get("parameters", {}) or {}
+
+              js_code = params.get("jsCode")
+              if isinstance(js_code, str) and re.search(r"const\\s+apiKey\\s*=\\s*'[^']+'", js_code):
+                  hardcoded.append(f"{node_name}: jsCode contains hardcoded apiKey")
+
+              header_params = ((params.get("headerParameters") or {}).get("parameters") or [])
+              for header in header_params:
+                  if header.get("name") != "X-API-Key":
+                      continue
+                  value = str(header.get("value", "")).strip()
+                  if not value.startswith("={{"):
+                      hardcoded.append(f"{node_name}: X-API-Key header is not expression-based")
+
+          if hardcoded:
+              print("Hardcoded secret(s) detected in workflow:")
+              for item in hardcoded:
+                  print(f"- {item}")
+              sys.exit(1)
+
+          print("Secret guard OK")
+          PY

@@ -1,0 +1,131 @@
+name: Build And Deploy Staging
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - local-stack/services/matching-api/**
+      - local-stack/docker-compose.staging.yml
+      - local-stack/n8n-matching-workflow.json
+      - .github/workflows/build.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/keoni-matching-api
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: sha-${{ github.sha }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push matching-api image
+        uses: docker/build-push-action@v6
+        with:
+          context: local-stack/services/matching-api
+          file: local-stack/services/matching-api/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:sha-${{ github.sha }}
+            ${{ env.IMAGE_NAME }}:staging
+
+  deploy-staging:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: staging
+    env:
+      IMAGE_TAG: sha-${{ github.sha }}
+    steps:
+      - name: Deploy on staging server via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          MATCHING_API_IMAGE: ${{ env.IMAGE_NAME }}
+        with:
+          host: ${{ secrets.STAGING_SSH_HOST }}
+          username: ${{ secrets.STAGING_SSH_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          port: ${{ secrets.STAGING_SSH_PORT || '22' }}
+          envs: IMAGE_TAG,MATCHING_API_IMAGE
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.STAGING_DEPLOY_PATH }}"
+            test -f .env.staging
+            export IMAGE_TAG="$IMAGE_TAG"
+            export MATCHING_API_IMAGE="$MATCHING_API_IMAGE"
+            docker compose --env-file .env.staging -f docker-compose.staging.yml pull
+            docker compose --env-file .env.staging -f docker-compose.staging.yml up -d --remove-orphans
+
+      - name: Smoke API health
+        run: |
+          set -euo pipefail
+          curl -fsS "${{ secrets.STAGING_API_URL }}/health" > /tmp/api-health.json
+          cat /tmp/api-health.json
+
+      - name: Smoke n8n health
+        run: |
+          set -euo pipefail
+          curl -fsS "${{ secrets.STAGING_N8N_URL }}/healthz" > /tmp/n8n-health.json
+          cat /tmp/n8n-health.json
+
+      - name: E2E smoke WP -> n8n -> API -> results
+        if: ${{ secrets.STAGING_WEBHOOK_URL != '' && secrets.STAGING_WEBHOOK_SECRET != '' && secrets.STAGING_JOB_ID != '' && secrets.STAGING_WP_URL != '' }}
+        env:
+          STAGING_WEBHOOK_URL: ${{ secrets.STAGING_WEBHOOK_URL }}
+          STAGING_WEBHOOK_SECRET: ${{ secrets.STAGING_WEBHOOK_SECRET }}
+          STAGING_JOB_ID: ${{ secrets.STAGING_JOB_ID }}
+          STAGING_WP_URL: ${{ secrets.STAGING_WP_URL }}
+        run: |
+          set -euo pipefail
+          started_ms=$(python - <<'PY'
+          import time
+          print(int(time.time() * 1000))
+          PY
+          )
+
+          curl -fsS -X POST "$STAGING_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-API-Key: $STAGING_WEBHOOK_SECRET" \
+            -d "{\"job_post_id\":$STAGING_JOB_ID,\"workflow_started_at_ms\":$started_ms}"
+
+          ok=0
+          for i in $(seq 1 20); do
+            count=$(curl -fsS "$STAGING_WP_URL/wp-json/keoni/v1/matching/$STAGING_JOB_ID?limit=1" | python - <<'PY'
+          import json, sys
+          payload = json.load(sys.stdin)
+          print(int(payload.get('count', 0)))
+          PY
+            )
+            if [ "$count" -gt 0 ]; then
+              ok=1
+              break
+            fi
+            sleep 15
+          done
+
+          if [ "$ok" -ne 1 ]; then
+            echo "No matching result observed for job $STAGING_JOB_ID"
+            exit 1
+          fi
