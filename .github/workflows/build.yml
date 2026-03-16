@@ -99,7 +99,7 @@ jobs:
           STAGING_WP_URL: ${{ secrets.STAGING_WP_URL }}
         run: |
           set -euo pipefail
-          started_ms=$(python - <<'PY'
+          started_ms=$(python3 - <<'PY'
           import time
           print(int(time.time() * 1000))
           PY
@@ -112,7 +112,7 @@ jobs:
 
           ok=0
           for i in $(seq 1 20); do
-            count=$(curl -fsS "$STAGING_WP_URL/wp-json/keoni/v1/matching/$STAGING_JOB_ID?limit=1" | python - <<'PY'
+            count=$(curl -fsS "$STAGING_WP_URL/wp-json/keoni/v1/matching/$STAGING_JOB_ID?limit=1" | python3 - <<'PY'
           import json, sys
           payload = json.load(sys.stdin)
           print(int(payload.get('count', 0)))

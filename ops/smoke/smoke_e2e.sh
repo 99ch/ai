@@ -16,7 +16,7 @@ if [[ -n "${N8N_URL:-}" ]]; then
   curl -fsS "$N8N_URL/healthz" > /dev/null
 fi
 
-started_ms="$(python - <<'PY'
+started_ms="$(python3 - <<'PY'
 import time
 print(int(time.time() * 1000))
 PY
@@ -30,7 +30,7 @@ curl -fsS -X POST "$WEBHOOK_URL" \
 
 result_ok=0
 for i in $(seq 1 20); do
-  count="$(curl -fsS "$WP_BASE_URL/wp-json/keoni/v1/matching/$JOB_ID?limit=1" | python - <<'PY'
+  count="$(curl -fsS "$WP_BASE_URL/wp-json/keoni/v1/matching/$JOB_ID?limit=1" | python3 - <<'PY'
 import json
 import sys
 payload = json.load(sys.stdin)

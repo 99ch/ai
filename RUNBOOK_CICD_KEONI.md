@@ -1,7 +1,9 @@
 # Runbook CI/CD Keoni (GitHub Actions)
 
+Guide débutant detaille disponible dans `GUIDE_DEPLOIEMENT_STAGIAIRE_KEONI.md`.
+
 ## 1. Objectif
-Ce runbook decrit la chaine CI/CD pour deployer la brique IA Keoni (matching-api, n8n, db) sur staging puis production.
+Ce runbook décrit la chaîne CI/CD pour déployer la brique IA Keoni (matching-api, n8n, db) sur staging puis production.
 
 ## 2. Fichiers ajoutes
 - `.github/workflows/ci.yml`
@@ -15,7 +17,7 @@ Ce runbook decrit la chaine CI/CD pour deployer la brique IA Keoni (matching-api
 - `ops/monitoring/check_stack.sh`
 - `ops/deploy/rollback.sh`
 
-## 3. Secrets GitHub a configurer
+## 3. Secrets GitHub à configurer
 ### 3.1 Environment `staging`
 - `STAGING_SSH_HOST`
 - `STAGING_SSH_PORT`
@@ -45,28 +47,28 @@ Ce runbook decrit la chaine CI/CD pour deployer la brique IA Keoni (matching-api
 ## 4. Preparation serveur
 1. Copier `local-stack/.env.prod.example` vers `.env.prod` (prod) et `.env.staging` (staging).
 2. Renseigner toutes les valeurs sensibles.
-3. Verifier `MATCHING_API_IMAGE` et `IMAGE_TAG` dans les fichiers env.
+3. Vérifier `MATCHING_API_IMAGE` et `IMAGE_TAG` dans les fichiers env.
 4. Positionner les fichiers compose dans le dossier cible (`local-stack`).
 
-## 4.1 Cas reel: WordPress deja en production
+## 4.1 Cas réel: WordPress déjà en production
 Dans ce cas, le CI/CD ne deploie pas WordPress. Il deploie uniquement `matching-api` + `n8n` + `db`.
 
-Reglages a faire dans le backoffice WordPress (`Keoni Bridge > Parametres`):
-- `Cle API`: cliquer sur `Regenerer la cle API`, copier la valeur et la stocker dans `WP_API_KEY` (env n8n/serveur).
+Réglages a faire dans le backoffice WordPress (`Keoni Bridge > Parametres`):
+- `Clé API`: cliquer sur `Régénérer la clé API`, copier la valeur et la stocker dans `WP_API_KEY` (env n8n/serveur).
 - `Webhook n8n`: URL publique webhook n8n (ex: `https://n8n.example.com/webhook/keoni/new-job`).
-- `Secret Webhook n8n`: meme valeur que `N8N_WEBHOOK_SECRET` (serveur) et `PROD_WEBHOOK_SECRET` (GitHub secret).
+- `Secret Webhook n8n`: même valeur que `N8N_WEBHOOK_SECRET` (serveur) et `PROD_WEBHOOK_SECRET` (GitHub secret).
 - `URL matching API`: valeur informative, mettre `https://api.example.com/score`.
 
-Regles de correspondance importantes:
+Règles de correspondance importantes:
 - `WP_API_BASE_URL` doit pointer vers le WordPress de production (ex: `https://wp.example.com`).
-- `WP_API_KEY` (n8n) = cle API Keoni Bridge regeneree dans le backoffice.
+- `WP_API_KEY` (n8n) = clé API Keoni Bridge regeneree dans le backoffice.
 - `N8N_WEBHOOK_SECRET` (n8n) = `webhook_secret` du plugin Keoni Bridge.
 
-## 5. Flux de deploiement
+## 5. Flux de déploiement
 1. PR ou push sur `main` declenche `ci.yml` (lint, validation compose, garde-fou secrets).
 2. Push sur `main` declenche `build.yml`:
    - build et push image GHCR tag `sha-<commit>` et `staging`
-   - deploiement auto staging via SSH
+   - déploiement auto staging via SSH
    - smoke API/n8n + E2E
 3. Production se fait via `deploy-prod.yml` (manuel + approval environment).
 
@@ -94,7 +96,7 @@ API_URL=https://api.example.com N8N_URL=https://n8n.example.com \
 ```
 
 ## 8. Cron recommande (serveur)
-- Backup DB toutes les nuits a 02:30
+- Backup DB toutes les nuits à 02:30
 - Monitoring toutes les 5 minutes
 
 Exemple:
