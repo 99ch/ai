@@ -171,6 +171,7 @@ class PreparedJob:
 class PreparedCv:
     payload: CvPayload
     text: str
+    text_tokens: set[str]
     title_tokens: set[str]
     keywords: List[str]
     keyword_set: set[str]
@@ -431,6 +432,7 @@ def prepare_cv(cv: CvPayload) -> PreparedCv:
     meta = cv.metadata or {}
     raw = cv.model_dump()
     text = assemble_cv_text(cv)
+    text_tokens = tokenize(text) if text else set()
     title_tokens = tokenize(" ".join(filter(None, [cv.application_title, cv.title])))
     keywords = parse_keywords(cv.keywords) + parse_keywords(meta.get("keywords")) + parse_keywords(cv.skills)
     keywords = list(dict.fromkeys(keywords))
@@ -455,6 +457,7 @@ def prepare_cv(cv: CvPayload) -> PreparedCv:
     return PreparedCv(
         payload=cv,
         text=text,
+        text_tokens=text_tokens,
         title_tokens=title_tokens,
         keywords=keywords,
         keyword_set=set(keywords),
@@ -519,7 +522,7 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
     strengths: List[str] = []
     weaknesses: List[str] = []
 
-    keyword_hits = sorted(job.keyword_set.intersection(cv.keyword_set))
+    keyword_hits = sorted(job.keyword_set.intersection(cv.keyword_set | cv.text_tokens))
     if keyword_hits:
         strengths.append(f"Mots-clés ({', '.join(keyword_hits[:5])})")
     else:
