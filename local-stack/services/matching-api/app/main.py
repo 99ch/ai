@@ -10,9 +10,13 @@ from pathlib import Path
 from threading import Lock
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
 
+import tempfile
+from urllib.parse import urlparse
+
 import faiss
 import numpy as np
 import pytesseract
+import requests
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
@@ -76,6 +80,8 @@ class Settings:
     embed_batch_size: int = int(os.getenv("EMBED_BATCH_SIZE", "32"))
     preload_model: bool = os.getenv("MATCHING_PRELOAD_MODEL", "1") == "1"
     data_dir: Path = Path(os.getenv("DATA_DIR", "/data/cv_raw"))
+    file_fetch_timeout_seconds: int = int(os.getenv("MATCHING_FILE_FETCH_TIMEOUT", "15"))
+    file_fetch_max_bytes: int = int(os.getenv("MATCHING_FILE_FETCH_MAX_BYTES", str(20 * 1024 * 1024)))
 
 
 settings = Settings()
@@ -306,6 +312,38 @@ def resolve_file_path(raw_path: str) -> Optional[Path]:
     return None
 
 
+def fetch_remote_file(url: str) -> Optional[Path]:
+    """Télécharge un CV distant (ex. URL publique WordPress) vers un fichier temporaire.
+
+    Le fichier réel du candidat (uploadé via JS Job Manager) vit souvent sur un
+    serveur WordPress distinct de matching-api ; on le récupère à la volée plutôt
+    que de dépendre d'un volume partagé.
+    """
+    suffix = Path(urlparse(url).path).suffix or ".bin"
+
+    try:
+        with requests.get(url, timeout=settings.file_fetch_timeout_seconds, stream=True) as response:
+            response.raise_for_status()
+
+            with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as tmp:
+                written = 0
+                for chunk in response.iter_content(chunk_size=65536):
+                    if not chunk:
+                        continue
+                    written += len(chunk)
+                    if written > settings.file_fetch_max_bytes:
+                        logging.warning("Remote CV file too large, aborting download: %s", url)
+                        tmp.close()
+                        Path(tmp.name).unlink(missing_ok=True)
+                        return None
+                    tmp.write(chunk)
+
+                return Path(tmp.name)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Failed to fetch remote CV file %s: %s", url, exc)
+        return None
+
+
 def text_from_file(path: Path) -> str:
     try:
         parsed = parser.from_file(str(path))
@@ -345,11 +383,17 @@ def assemble_cv_text(cv: CvPayload) -> str:
 
     file_candidate = cv.file_path or meta.get("file_path")
     if file_candidate:
-        resolved = resolve_file_path(file_candidate)
+        is_remote = urlparse(file_candidate).scheme in ("http", "https")
+        resolved = fetch_remote_file(file_candidate) if is_remote else resolve_file_path(file_candidate)
+
         if resolved:
-            file_text = text_from_file(resolved)
-            if file_text:
-                return file_text
+            try:
+                file_text = text_from_file(resolved)
+                if file_text:
+                    return file_text
+            finally:
+                if is_remote:
+                    resolved.unlink(missing_ok=True)
 
     return ""
 
