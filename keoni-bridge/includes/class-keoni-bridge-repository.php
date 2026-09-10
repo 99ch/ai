@@ -526,6 +526,22 @@ class Keoni_Bridge_Repository {
         return $indexed;
     }
 
+    public static function build_resume_file_url( int $resume_id, string $filename ): string {
+        if ( $resume_id <= 0 || '' === $filename ) {
+            return '';
+        }
+
+        $config_model   = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'configuration' ) : null;
+        $data_directory = $config_model ? $config_model->getConfigurationByConfigName( 'data_directory' ) : '';
+        $uploads        = wp_get_upload_dir();
+
+        if ( empty( $uploads['baseurl'] ) || empty( $data_directory ) ) {
+            return '';
+        }
+
+        return trailingslashit( $uploads['baseurl'] ) . $data_directory . '/data/jobseeker/resume_' . $resume_id . '/resume/' . $filename;
+    }
+
     public static function list_cvs( array $args = [] ): array {
         global $wpdb;
 

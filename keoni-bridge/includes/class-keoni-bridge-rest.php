@@ -199,6 +199,7 @@ class Keoni_Bridge_Rest {
         $cv_table     = $wpdb->prefix . 'cv_database';
         $salary_table = $wpdb->prefix . 'js_job_salaryrange';
         $addr_table   = $wpdb->prefix . 'js_job_resumeaddresses';
+        $files_table  = $wpdb->prefix . 'js_job_resumefiles';
 
         $joins  = [];
         $where  = [ 'r.status = 1', 'r.searchable = 1' ];
@@ -318,9 +319,19 @@ class Keoni_Bridge_Rest {
         $join_sql  = empty( $joins ) ? '' : ( "\n" . implode( "\n", array_unique( $joins ) ) );
         $where_sql = implode( ' AND ', $where );
 
-        $query = "SELECT r.*, d.text_content AS cv_text_content, d.metadata AS cv_metadata
+        $query = "SELECT r.*, d.text_content AS cv_text_content, d.metadata AS cv_metadata,
+                        resumefile.filename AS resume_filename
                  FROM {$resume_table} r
                  LEFT JOIN {$cv_table} d ON d.candidate_email = r.email_address
+                 LEFT JOIN (
+                     SELECT rf1.resumeid, rf1.filename
+                     FROM {$files_table} rf1
+                     INNER JOIN (
+                         SELECT resumeid, MAX(id) AS max_id
+                         FROM {$files_table}
+                         GROUP BY resumeid
+                     ) rf2 ON rf2.resumeid = rf1.resumeid AND rf2.max_id = rf1.id
+                 ) AS resumefile ON resumefile.resumeid = r.id
                  {$join_sql}
                  WHERE {$where_sql}
                  GROUP BY r.id
@@ -541,9 +552,16 @@ class Keoni_Bridge_Rest {
     private function normalize_resume( array $resume ): array {
         $application_title = sanitize_text_field( $resume['application_title'] ?? $resume['title'] ?? $resume['job_title'] ?? '' );
         $raw_job_title     = sanitize_text_field( $resume['job_title'] ?? '' );
+        $resume_id         = absint( $resume['id'] ?? 0 );
+        $resume_filename   = sanitize_file_name( (string) ( $resume['resume_filename'] ?? '' ) );
+
+        $file_path = '';
+        if ( '' !== $resume_filename && class_exists( 'Keoni_Bridge_Repository' ) ) {
+            $file_path = Keoni_Bridge_Repository::build_resume_file_url( $resume_id, $resume_filename );
+        }
 
         return [
-            'id'          => absint( $resume['id'] ?? 0 ),
+            'id'          => $resume_id,
             'title'       => $application_title,
             'application_title' => $application_title,
             'job_title'   => $raw_job_title,
@@ -560,6 +578,7 @@ class Keoni_Bridge_Rest {
             'resume'      => wp_kses_post( $resume['resume'] ?? '' ),
             'text_content'=> $this->build_resume_text_content( $resume ),
             'metadata'    => $this->normalize_cv_metadata( $resume['cv_metadata'] ?? '' ),
+            'file_path'   => $file_path,
             'updated_at'  => $this->resume_updated_at( $resume ),
         ];
     }
