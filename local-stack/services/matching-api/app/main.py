@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import logging
 import os
 import re
@@ -21,7 +22,12 @@ from fastapi import Depends, FastAPI, Header, HTTPException, status
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
 from sentence_transformers import SentenceTransformer
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from tika import parser
+
+from app.db import get_engine, init_db
+from app.models import CvEmbedding, JobEmbedding
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
@@ -64,7 +70,7 @@ DEFAULT_STOPWORDS = {
 
 @dataclass(slots=True)
 class Settings:
-    sentence_model: str = os.getenv("SENTENCE_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
+    sentence_model: str = os.getenv("SENTENCE_MODEL", "intfloat/multilingual-e5-base")
     top_k: int = int(os.getenv("MATCHING_TOP_K", "200"))
     min_similarity: float = float(os.getenv("MATCHING_MIN_SIMILARITY", "0.2"))
     keyword_weight: float = float(os.getenv("MATCHING_KEYWORD_WEIGHT", "5"))
@@ -87,6 +93,15 @@ class Settings:
 settings = Settings()
 _model: Optional[SentenceTransformer] = None
 _model_lock = Lock()
+_pgvector_ready = False
+
+
+@app.on_event("startup")
+def init_persistence() -> None:
+    global _pgvector_ready
+    _pgvector_ready = init_db()
+    if _pgvector_ready:
+        logging.info("Embeddings persistants pgvector activés")
 
 
 @app.on_event("startup")
@@ -518,6 +533,106 @@ def search_top_matches(job_embedding: np.ndarray, cv_embeddings: np.ndarray, lim
     return indices[0], scores[0]
 
 
+def content_hash(value: str) -> str:
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+
+def embedding_text(value: str, kind: str) -> str:
+    """Préfixe query:/passage: attendu par les modèles E5 (intfloat/multilingual-e5-*)."""
+    if "e5" not in settings.sentence_model.lower():
+        return value
+    prefix = "query: " if kind == "query" else "passage: "
+    return f"{prefix}{value}"
+
+
+def rank_with_faiss(job: PreparedJob, candidates: List[PreparedCv], top_k: int) -> List[Tuple[PreparedCv, float]]:
+    job_embedding = encode_texts([embedding_text(job.text, "query")])[0]
+    cv_embeddings = encode_texts([embedding_text(cv.text, "passage") for cv in candidates])
+    indices, similarities = search_top_matches(job_embedding, cv_embeddings, top_k)
+    return [(candidates[idx], float(sim)) for idx, sim in zip(indices, similarities) if idx >= 0]
+
+
+def rank_with_pgvector(
+    job: PreparedJob, job_id: int, candidates: List[PreparedCv], top_k: int
+) -> Optional[List[Tuple[PreparedCv, float]]]:
+    """Classe les candidats via pgvector, en ne ré-encodant que ce qui a changé.
+
+    Retourne None si la base n'est pas disponible ou en cas d'erreur, pour
+    déclencher le repli sur rank_with_faiss().
+    """
+    engine = get_engine()
+    if engine is None:
+        return None
+
+    candidates_by_id = {cv.payload.id: cv for cv in candidates}
+    cv_ids = list(candidates_by_id.keys())
+
+    try:
+        with engine.begin() as conn:
+            job_text_hash = content_hash(job.text)
+            existing_job = conn.execute(
+                select(JobEmbedding.content_hash, JobEmbedding.embedding).where(JobEmbedding.job_id == job_id)
+            ).first()
+
+            if existing_job and existing_job.content_hash == job_text_hash:
+                job_vector = np.asarray(existing_job.embedding, dtype="float32")
+            else:
+                job_vector = encode_texts([embedding_text(job.text, "query")])[0]
+                job_stmt = pg_insert(JobEmbedding).values(
+                    job_id=job_id, content_hash=job_text_hash, embedding=job_vector.tolist()
+                )
+                job_stmt = job_stmt.on_conflict_do_update(
+                    index_elements=[JobEmbedding.job_id],
+                    set_={
+                        "content_hash": job_stmt.excluded.content_hash,
+                        "embedding": job_stmt.excluded.embedding,
+                        "updated_at": func.now(),
+                    },
+                )
+                conn.execute(job_stmt)
+
+            existing_rows = conn.execute(
+                select(CvEmbedding.cv_id, CvEmbedding.content_hash).where(CvEmbedding.cv_id.in_(cv_ids))
+            ).all()
+            existing_hashes = {row.cv_id: row.content_hash for row in existing_rows}
+            cv_hashes = {cv_id: content_hash(candidates_by_id[cv_id].text) for cv_id in cv_ids}
+            stale_ids = [cv_id for cv_id in cv_ids if existing_hashes.get(cv_id) != cv_hashes[cv_id]]
+
+            if stale_ids:
+                vectors = encode_texts([embedding_text(candidates_by_id[cv_id].text, "passage") for cv_id in stale_ids])
+                for i, cv_id in enumerate(stale_ids):
+                    cv_stmt = pg_insert(CvEmbedding).values(
+                        cv_id=cv_id, content_hash=cv_hashes[cv_id], embedding=vectors[i].tolist()
+                    )
+                    cv_stmt = cv_stmt.on_conflict_do_update(
+                        index_elements=[CvEmbedding.cv_id],
+                        set_={
+                            "content_hash": cv_stmt.excluded.content_hash,
+                            "embedding": cv_stmt.excluded.embedding,
+                            "updated_at": func.now(),
+                        },
+                    )
+                    conn.execute(cv_stmt)
+
+            distance = CvEmbedding.embedding.cosine_distance(job_vector.tolist()).label("distance")
+            limit = max(1, min(top_k, len(cv_ids)))
+            rows = conn.execute(
+                select(CvEmbedding.cv_id, distance)
+                .where(CvEmbedding.cv_id.in_(cv_ids))
+                .order_by(distance.asc())
+                .limit(limit)
+            ).all()
+
+        return [
+            (candidates_by_id[row.cv_id], max(0.0, 1.0 - float(row.distance)))
+            for row in rows
+            if row.cv_id in candidates_by_id
+        ]
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Classement pgvector impossible, repli sur FAISS: %s", exc)
+        return None
+
+
 def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) -> ScoreItem:
     strengths: List[str] = []
     weaknesses: List[str] = []
@@ -635,6 +750,7 @@ def healthcheck() -> dict:
         "model_loaded": _model is not None,
         "model_cache": os.getenv("MODEL_CACHE", "/models"),
         "data_dir": str(settings.data_dir),
+        "pgvector_enabled": _pgvector_ready,
         "time": time.time(),
     }
 
@@ -661,23 +777,19 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
 
     candidates = filtered_usable if filtered_usable else usable
 
-    job_embedding = encode_texts([job.text])[0]
-    cv_embeddings = encode_texts([cv.text for cv in candidates])
-
-    indices, similarities = search_top_matches(job_embedding, cv_embeddings, settings.top_k)
+    ranked = rank_with_pgvector(job, payload.job.id, candidates, settings.top_k) if _pgvector_ready else None
+    if ranked is None:
+        ranked = rank_with_faiss(job, candidates, settings.top_k)
 
     scored_items: List[ScoreItem] = []
-    for rank, (idx, sim) in enumerate(zip(indices, similarities)):
-        if idx < 0:
-            continue
+    for rank, (cv, sim) in enumerate(ranked):
         if sim < settings.min_similarity:
             continue
-        scored_items.append(build_score(job, candidates[idx], sim, rank))
+        scored_items.append(build_score(job, cv, sim, rank))
 
-    if not scored_items and len(indices):
-        idx = int(indices[0])
-        if idx >= 0:
-            scored_items.append(build_score(job, candidates[idx], float(similarities[0]), 0))
+    if not scored_items and ranked:
+        cv, sim = ranked[0]
+        scored_items.append(build_score(job, cv, sim, 0))
 
     # Final deterministic ranking must follow final score, not raw embedding rank.
     scored_items.sort(
