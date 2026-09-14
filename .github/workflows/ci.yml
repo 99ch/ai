@@ -30,6 +30,13 @@ jobs:
       - name: Python syntax check
         run: python -m compileall -q local-stack/services/matching-api/app
 
+      - name: Install test dependencies
+        run: pip install -r local-stack/services/matching-api/requirements-dev.txt
+
+      - name: Run unit tests
+        run: python -m pytest tests
+        working-directory: local-stack/services/matching-api
+
       - name: Validate n8n workflow JSON
         run: python -m json.tool local-stack/n8n-matching-workflow.json > /dev/null
 
