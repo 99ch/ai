@@ -22,6 +22,15 @@ services:
     image: ${MATCHING_API_IMAGE}:${IMAGE_TAG}
     container_name: keoni_matching_api_prod
     restart: unless-stopped
+    # Sans limite, un pic mémoire de ce conteneur peut affamer tout l'hôte au
+    # lieu d'être contenu (leçon d'AI Real-Time, c322ef5 : l'OOM killer a tué
+    # leur API deux fois en 21 min à 768m, en silence — un document marqué
+    # "prêt" sans aucun résultat de matching, aucune erreur visible). Notre
+    # pile de modèles partage les deux plus lourds des leurs
+    # (multilingual-e5-base ~1.1GB + crossencoder-camembert-large-mmarcoFR
+    # ~1.3GB), sans leur NER/ESCO — 3072m reprend leur valeur mesurée en prod
+    # sur un stack comparable, à ajuster si la RAM réelle du serveur diffère.
+    mem_limit: 3072m
     env_file: .env.prod
     environment:
       MATCHING_API_KEY: ${MATCHING_API_KEY}
