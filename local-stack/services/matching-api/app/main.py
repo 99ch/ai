@@ -8,6 +8,7 @@ import re
 import secrets
 import time
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 from threading import Lock
 from typing import Iterable, List, Optional, Sequence, Tuple, Union
@@ -38,7 +39,9 @@ from app.scoring import (
     compute_final_score,
     normalize_whitespace,
     overlap_text,
+    split_priority_keyword_terms,
     tokenize,
+    weights_for_profile,
 )
 from app.taxonomy import find_skills
 
@@ -78,6 +81,21 @@ class Settings:
     )
     crossencoder_top_k: int = int(os.getenv("MATCHING_CROSSENCODER_TOP_K", "30"))
     tika_timeout_seconds: int = int(os.getenv("MATCHING_TIKA_TIMEOUT_SECONDS", "30"))
+    # Crédit sémantique partiel sur les compétences/mots-clés non matchés
+    # littéralement — portage de skill_embedding_* côté AI Real-Time
+    # (settings.py). Modèle DÉLIBÉRÉMENT différent de `sentence_model`
+    # ci-dessus : mesuré chez eux que multilingual-e5-base (bon sur des
+    # textes longs) ne discrimine pas des noms de compétences courts
+    # ("Python" vs "Photoshop" à 0.85 de similarité cosinus, largement
+    # au-dessus du seuil) — all-MiniLM-L6-v2, entraîné sur des paires de
+    # phrases courtes, donne 0.35 sur la même paire. seuil/plafond repris
+    # tels quels (calibrés par eux pour CE modèle).
+    skill_embedding_enabled: bool = os.getenv("MATCHING_SKILL_EMBEDDING_ENABLED", "1") == "1"
+    skill_embedding_model: str = os.getenv(
+        "MATCHING_SKILL_EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"
+    )
+    skill_embedding_threshold: float = float(os.getenv("MATCHING_SKILL_EMBEDDING_THRESHOLD", "0.6"))
+    skill_embedding_max_credit: float = float(os.getenv("MATCHING_SKILL_EMBEDDING_MAX_CREDIT", "0.8"))
 
 
 settings = Settings()
@@ -88,6 +106,8 @@ _cross_encoder_disabled = False  # settings.crossencoder_enabled == False -- per
 _cross_encoder_last_failure: Optional[float] = None  # time.monotonic() du dernier échec de chargement
 _CROSS_ENCODER_RETRY_COOLDOWN_S = 300
 _cross_encoder_lock = Lock()
+_skill_embedding_model: Optional[SentenceTransformer] = None
+_skill_embedding_model_lock = Lock()
 _pgvector_ready = False
 
 
@@ -150,6 +170,11 @@ class JobPayload(BaseModel):
     keywords: Optional[Union[str, List[str]]] = Field(default=None, description="Liste ou chaîne de mots-clés")
     location: Optional[str] = None
     meta: Optional[dict] = None
+    # Preset de pondération recruteur (voir app.scoring.SCORING_PROFILES) --
+    # pas encore d'UI WP pour le renseigner ; champ accepté dès maintenant
+    # (direct ou via meta["scoring_profile"]) pour que le câblage frontend
+    # à venir n'ait rien à changer côté API.
+    scoring_profile: Optional[str] = None
 
 
 class CvPayload(BaseModel):
@@ -421,6 +446,12 @@ def prepare_job(job: JobPayload) -> PreparedJob:
     salary_min = parse_float(find_first(meta, ["salaryfrom", "salary_min", "salary_from"]))
     salary_max = parse_float(find_first(meta, ["salaryto", "salary_max", "salary_to", "tjm", "salary"]))
 
+    # job.keywords brut (avant dédup) alimente le mécanisme "mots-clés
+    # prioritaires" (couverture + pénalité core-keyword) — voir le
+    # commentaire en tête de section dans app/scoring.py.
+    keyword_terms_raw = split_priority_keyword_terms(job.keywords)
+    scoring_profile = job.scoring_profile or normalized_text(find_first(meta, ["scoring_profile", "profil_scoring"])) or None
+
     return PreparedJob(
         text=text,
         semantic_text=semantic_text,
@@ -434,6 +465,9 @@ def prepare_job(job: JobPayload) -> PreparedJob:
         min_experience_years=min_experience_years,
         salary_min=salary_min,
         salary_max=salary_max,
+        title=job.title or "",
+        keyword_terms_raw=keyword_terms_raw,
+        scoring_profile=scoring_profile,
     )
 
 
@@ -630,6 +664,105 @@ def rerank_with_cross_encoder(
     return {cv.payload.id: cross_encode_best(job.semantic_text, cv.text) for cv, _sim in ranked[:limit]}
 
 
+def get_skill_embedding_model() -> Optional[SentenceTransformer]:
+    """Charge paresseusement le modèle DÉDIÉ au crédit sémantique de
+    compétences (voir le commentaire sur Settings.skill_embedding_model) --
+    volontairement pas de cooldown de retry comme get_cross_encoder() :
+    cette composante est une amélioration secondaire (un ratage se traduit
+    juste par un repli lexical pur, pas par un score sémantique aplati),
+    donc pas la même justification empirique pour la complexité du retry.
+    """
+    global _skill_embedding_model
+    if not settings.skill_embedding_enabled:
+        return None
+    if _skill_embedding_model is not None:
+        return _skill_embedding_model
+    with _skill_embedding_model_lock:
+        if _skill_embedding_model is not None:
+            return _skill_embedding_model
+        try:
+            logging.info("Loading skill-embedding model %s", settings.skill_embedding_model)
+            _skill_embedding_model = SentenceTransformer(settings.skill_embedding_model)
+        except Exception as exc:  # noqa: BLE001
+            logging.warning(
+                "Modèle d'embedding de compétences indisponible (%s) — crédit sémantique désactivé, repli lexical",
+                exc,
+            )
+    return _skill_embedding_model
+
+
+@lru_cache(maxsize=4096)
+def embed_skill_label(label: str) -> Optional[Tuple[float, ...]]:
+    """Embedding L2-normalisé d'un libellé de compétence isolé, mis en cache
+    (les mêmes libellés canoniques reviennent sans cesse d'une paire
+    CV/offre à l'autre). Portage de _embed_one côté AI Real-Time."""
+    model = get_skill_embedding_model()
+    if model is None:
+        return None
+    try:
+        vectors = model.encode([label], normalize_embeddings=True)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Échec d'embedding pour la compétence %r: %s", label, exc)
+        return None
+    if vectors is None or len(vectors) == 0:
+        return None
+    return tuple(float(x) for x in vectors[0])
+
+
+def best_skill_similarities(missing: Tuple[str, ...], cv_skills: Tuple[str, ...]) -> dict[str, float]:
+    """Pour chaque compétence de `missing`, la similarité cosinus maximale
+    avec une compétence de `cv_skills`. Portage de best_skill_similarities
+    côté AI Real-Time (embeddings.py)."""
+    if not missing or not cv_skills:
+        return {}
+    cv_vectors = [(s, v) for s in cv_skills if (v := embed_skill_label(s)) is not None]
+    if not cv_vectors:
+        return {}
+
+    result: dict[str, float] = {}
+    for term in missing:
+        term_vector = embed_skill_label(term)
+        if term_vector is None:
+            continue
+        best = 0.0
+        for _s, cv_vector in cv_vectors:
+            similarity = sum(a * b for a, b in zip(term_vector, cv_vector))
+            best = max(best, similarity)
+        result[term] = float(best)
+    return result
+
+
+def semantic_skill_credit(unmatched: frozenset[str], cv_skills: frozenset[str]) -> float:
+    """Somme des crédits partiels (chacun dans [0, skill_embedding_max_credit])
+    pour les compétences/mots-clés requis non matchés littéralement, via
+    similarité d'embedding aux compétences du CV. Retourne 0.0 (aucun
+    changement vs lexical pur) si la fonctionnalité est désactivée, le
+    modèle indisponible, ou rien ne dépasse le seuil. Portage de
+    _semantic_skill_credit ; injectée dans app.scoring via
+    compute_final_score(semantic_skill_credit_fn=...) pour que scoring.py
+    reste libre de tout import ML.
+    """
+    if not settings.skill_embedding_enabled or not unmatched or not cv_skills:
+        return 0.0
+    try:
+        similarities = best_skill_similarities(tuple(sorted(unmatched)), tuple(sorted(cv_skills)))
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Crédit sémantique de compétences indisponible (%s) — lexical seul", exc)
+        return 0.0
+    if not similarities:
+        return 0.0
+
+    threshold = settings.skill_embedding_threshold
+    max_credit = settings.skill_embedding_max_credit
+    total = 0.0
+    for sim in similarities.values():
+        if sim >= threshold:
+            span = 1.0 - threshold
+            frac = (sim - threshold) / span if span > 0 else 1.0
+            total += max_credit * min(1.0, frac)
+    return total
+
+
 def rank_with_faiss(job: PreparedJob, candidates: List[PreparedCv], top_k: int) -> List[Tuple[PreparedCv, float]]:
     job_embedding = encode_texts([embedding_text(job.text, "query")])[0]
     cv_embeddings = encode_texts([embedding_text(cv.text, "passage") for cv in candidates])
@@ -718,7 +851,9 @@ def rank_with_pgvector(
         return None
 
 
-def active_weights() -> dict[str, float]:
+def base_weights() -> dict[str, float]:
+    """Poids par défaut plateforme, configurables via env var — sert de
+    base quand l'offre n'a pas de profil de scoring reconnu."""
     return {
         "semantic": settings.w_semantic,
         "skills": settings.w_skills,
@@ -732,14 +867,25 @@ def active_weights() -> dict[str, float]:
     }
 
 
+def active_weights(profile: Optional[str] = None) -> dict[str, float]:
+    return weights_for_profile(profile, base=base_weights())
+
+
 def build_score(
     job: PreparedJob, cv: PreparedCv, similarity: float, rank: int, rerank_score: Optional[float] = None
 ) -> ScoreItem:
     # Moyenne pondérée renormalisée sur les composantes ayant un vrai signal
-    # + plafond de couverture skills/mots-clés — même logique que
-    # match_parsed_documents() chez AI Real-Time (matcher.py). Voir
-    # app/scoring.py pour le détail de chaque composante.
-    result: ScoreResult = compute_final_score(job, cv, similarity, rerank_score, active_weights())
+    # + plafond de couverture skills/mots-clés + pénalité core-keyword —
+    # même logique que match_parsed_documents() chez AI Real-Time
+    # (matcher.py). Voir app/scoring.py pour le détail de chaque composante.
+    result: ScoreResult = compute_final_score(
+        job,
+        cv,
+        similarity,
+        rerank_score,
+        active_weights(job.scoring_profile),
+        semantic_skill_credit_fn=semantic_skill_credit,
+    )
 
     strengths: List[str] = []
     weaknesses: List[str] = []
@@ -747,7 +893,7 @@ def build_score(
 
     if result.keyword_hits:
         strengths.append(f"Mots-clés ({', '.join(result.keyword_hits[:5])})")
-    elif job.keyword_set:
+    elif job.keyword_terms_raw:
         weaknesses.append("Aucun mot-clé commun identifié")
 
     if result.skill_hits:
@@ -778,7 +924,11 @@ def build_score(
             weaknesses.append("Catégorie métier différente")
 
     if "experience" not in low:
-        if cv.experience_years >= job.min_experience_years:
+        # required_years peut venir d'une inférence de séniorité (titre de
+        # l'offre) plutôt que d'une durée explicite -- job.min_experience_years
+        # reste None dans ce cas, voir experience_component().
+        required_years = result.breakdown.get("experience_required_years")
+        if required_years is not None and cv.experience_years >= required_years:
             strengths.append(f"Expérience suffisante ({cv.experience_years:g} ans)")
         else:
             weaknesses.append(f"Expérience inférieure ({cv.experience_years:g} ans)")
@@ -799,7 +949,9 @@ def build_score(
         "vector_similarity": round(float(similarity), 4),
         "cross_encoder_score": round(float(rerank_score), 4) if rerank_score is not None else None,
         "keyword_hits": result.keyword_hits,
+        "keyword_total": result.keyword_total,
         "skill_hits": result.skill_hits,
+        "scoring_profile": job.scoring_profile,
         "rank": rank + 1,
         "cv_category": cv.category,
         "cv_jobtype": cv.jobtype,
@@ -834,6 +986,9 @@ def healthcheck() -> dict:
         "crossencoder_enabled": settings.crossencoder_enabled,
         "crossencoder_model": settings.crossencoder_model if settings.crossencoder_enabled else None,
         "crossencoder_loaded": _cross_encoder is not None,
+        "skill_embedding_enabled": settings.skill_embedding_enabled,
+        "skill_embedding_model": settings.skill_embedding_model if settings.skill_embedding_enabled else None,
+        "skill_embedding_loaded": _skill_embedding_model is not None,
         "time": time.time(),
     }
 
