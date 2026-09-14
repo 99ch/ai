@@ -61,6 +61,33 @@ OCR_PAGE_TIMEOUT_SECONDS = int(os.getenv("MATCHING_OCR_PAGE_TIMEOUT_SECONDS", "2
 _BOILERPLATE_MIN_LENGTH = 20
 
 
+def _collapse_letter_spacing(line: str) -> str:
+    """Recolle un titre/mot rendu en espacement de lettres décoratif par le
+    template du CV ("C O M P É T E N C E S" -> "COMPÉTENCES").
+
+    Porté d'AI Real-Time (629a1bb), trouvé sur une validation à grande
+    échelle (~1500 CV réels) : ~1% des CV perdaient toute leur section
+    compétences parce que le titre de section ("COMPÉTENCES") était rendu
+    en espacement large par le template PDF/DOCX, et l'extraction le relit
+    alors comme un token par lettre. Chez eux ça cassait la détection de
+    section ; on ne l'a pas, mais le même rendu pollue directement le texte
+    envoyé au cross-encoder (du bruit hors distribution plutôt qu'une vraie
+    phrase) et empêcherait le matching par n-gramme de la taxonomie si un
+    intitulé de compétence lui-même était rendu ainsi.
+
+    Ne se déclenche que si la quasi-totalité des tokens de la ligne sont des
+    lettres isolées, pour ne jamais toucher une prose normale contenant
+    quelques mots d'une lettre ("à", "y", "a"...).
+    """
+    tokens = line.split()
+    if len(tokens) < 4:
+        return line
+    single_letter = sum(1 for t in tokens if len(t) == 1 and t.isalpha())
+    if single_letter / len(tokens) < 0.8:
+        return line
+    return "".join(tokens)
+
+
 def clean_text(text: str) -> str:
     """
     Normalise le texte extrait :
@@ -90,6 +117,7 @@ def clean_text(text: str) -> str:
         line = re.sub(r"\s+", " ", line.strip())
         # retire aussi les puces Wingdings/Symbol (ü→U+00FC, ð→U+00F0) utilisées comme marqueurs de liste dans certains PDF
         line = re.sub(r"^[\-*•·•◦ü°ð►▪▫●○◦]+\s*", "", line).strip()
+        line = _collapse_letter_spacing(line)
 
         if not line or len(line) < 2:
             prev = ""
