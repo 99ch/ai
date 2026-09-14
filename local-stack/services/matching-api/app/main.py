@@ -30,45 +30,21 @@ from tika import parser
 from app import extraction
 from app.db import get_engine, init_db
 from app.models import CvEmbedding, JobEmbedding
+from app.scoring import (
+    DEFAULT_WEIGHTS,
+    PreparedCv,
+    PreparedJob,
+    ScoreResult,
+    compute_final_score,
+    normalize_whitespace,
+    overlap_text,
+    tokenize,
+)
 from app.taxonomy import find_skills
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
 app = FastAPI(title="Keoni Matching API", version="0.2.0")
-
-WORD_PATTERN = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9']+")
-DEFAULT_STOPWORDS = {
-    "and",
-    "the",
-    "for",
-    "les",
-    "des",
-    "une",
-    "avec",
-    "sur",
-    "par",
-    "un",
-    "une",
-    "aux",
-    "von",
-    "und",
-    "pour",
-    "entre",
-    "dans",
-    "from",
-    "avec",
-    "chez",
-    "nos",
-    "vos",
-    "mon",
-    "ton",
-    "son",
-    "his",
-    "her",
-    "our",
-    "your",
-    "their",
-}
 
 
 @dataclass(slots=True)
@@ -76,15 +52,19 @@ class Settings:
     sentence_model: str = os.getenv("SENTENCE_MODEL", "intfloat/multilingual-e5-base")
     top_k: int = int(os.getenv("MATCHING_TOP_K", "200"))
     min_similarity: float = float(os.getenv("MATCHING_MIN_SIMILARITY", "0.2"))
-    keyword_weight: float = float(os.getenv("MATCHING_KEYWORD_WEIGHT", "5"))
-    skill_weight: float = float(os.getenv("MATCHING_SKILL_WEIGHT", "6"))
-    title_weight: float = float(os.getenv("MATCHING_TITLE_WEIGHT", "10"))
-    location_weight: float = float(os.getenv("MATCHING_LOCATION_WEIGHT", "5"))
-    category_weight: float = float(os.getenv("MATCHING_CATEGORY_WEIGHT", "6"))
-    jobtype_weight: float = float(os.getenv("MATCHING_JOBTYPE_WEIGHT", "8"))
-    experience_weight: float = float(os.getenv("MATCHING_EXPERIENCE_WEIGHT", "8"))
-    salary_weight: float = float(os.getenv("MATCHING_SALARY_WEIGHT", "6"))
-    qualification_penalty: float = float(os.getenv("MATCHING_QUALIFICATION_PENALTY", "20"))
+    # Poids de la moyenne pondérée renormalisée — même logique que _DEFAULT_W
+    # chez AI Real-Time (matcher.py), voir app/scoring.py::DEFAULT_WEIGHTS
+    # pour le détail de chaque composante et le mapping vs leurs 6 signaux
+    # d'origine. Remplace l'ancienne formule additive en points bruts.
+    w_semantic: float = float(os.getenv("MATCHING_W_SEMANTIC", str(DEFAULT_WEIGHTS["semantic"])))
+    w_skills: float = float(os.getenv("MATCHING_W_SKILLS", str(DEFAULT_WEIGHTS["skills"])))
+    w_keywords: float = float(os.getenv("MATCHING_W_KEYWORDS", str(DEFAULT_WEIGHTS["keywords"])))
+    w_experience: float = float(os.getenv("MATCHING_W_EXPERIENCE", str(DEFAULT_WEIGHTS["experience"])))
+    w_jobtype: float = float(os.getenv("MATCHING_W_JOBTYPE", str(DEFAULT_WEIGHTS["jobtype"])))
+    w_category: float = float(os.getenv("MATCHING_W_CATEGORY", str(DEFAULT_WEIGHTS["category"])))
+    w_location: float = float(os.getenv("MATCHING_W_LOCATION", str(DEFAULT_WEIGHTS["location"])))
+    w_salary: float = float(os.getenv("MATCHING_W_SALARY", str(DEFAULT_WEIGHTS["salary"])))
+    w_qualification: float = float(os.getenv("MATCHING_W_QUALIFICATION", str(DEFAULT_WEIGHTS["qualification"])))
     hard_filter_jobtype: bool = os.getenv("MATCHING_HARD_FILTER_JOBTYPE", "1") == "1"
     hard_filter_qualification: bool = os.getenv("MATCHING_HARD_FILTER_QUALIFICATION", "1") == "1"
     embed_batch_size: int = int(os.getenv("EMBED_BATCH_SIZE", "32"))
@@ -209,40 +189,6 @@ class ScoreResponse(BaseModel):
     results: List[ScoreItem]
 
 
-@dataclass(slots=True)
-class PreparedJob:
-    text: str
-    semantic_text: str
-    tokens: set[str]
-    keywords: List[str]
-    keyword_set: set[str]
-    skills_canonical: set[str]
-    location: str
-    category: str
-    jobtype: str
-    min_experience_years: Optional[float]
-    salary_min: Optional[float]
-    salary_max: Optional[float]
-
-
-@dataclass(slots=True)
-class PreparedCv:
-    payload: CvPayload
-    text: str
-    text_tokens: set[str]
-    title_tokens: set[str]
-    keywords: List[str]
-    keyword_set: set[str]
-    skills_canonical: set[str]
-    location: str
-    category: str
-    jobtype: str
-    experience_years: Optional[float]
-    salary_expected_min: Optional[float]
-    salary_expected_max: Optional[float]
-    qualified: Optional[bool]
-
-
 def require_api_key(x_api_key: str = Header(default="")) -> None:
     expected = os.getenv("MATCHING_API_KEY", "")
     if not expected or not secrets.compare_digest(x_api_key, expected):
@@ -257,20 +203,6 @@ def get_model() -> SentenceTransformer:
                 logging.info("Loading sentence-transformer model %s", settings.sentence_model)
                 _model = SentenceTransformer(settings.sentence_model)
     return _model
-
-
-def normalize_whitespace(value: str) -> str:
-    return re.sub(r"\s+", " ", value).strip()
-
-
-def tokenize(text: str) -> set[str]:
-    tokens: set[str] = set()
-    for match in WORD_PATTERN.finditer(text.lower()):
-        word = match.group()
-        if len(word) <= 2 or word in DEFAULT_STOPWORDS:
-            continue
-        tokens.add(word)
-    return tokens
 
 
 def parse_keywords(raw: Optional[Union[str, Sequence[str]]]) -> List[str]:
@@ -350,16 +282,6 @@ def find_first(source: dict, keys: Sequence[str]) -> Optional[object]:
         if key in source and source.get(key) not in (None, ""):
             return source.get(key)
     return None
-
-
-def overlap_text(a: str, b: str) -> bool:
-    if not a or not b:
-        return False
-    if a in b or b in a:
-        return True
-    a_tokens = set(tokenize(a))
-    b_tokens = set(tokenize(b))
-    return bool(a_tokens.intersection(b_tokens))
 
 
 def resolve_file_path(raw_path: str) -> Optional[Path]:
@@ -573,21 +495,6 @@ def passes_hard_filters(job: PreparedJob, cv: PreparedCv) -> Tuple[bool, List[st
             reasons.append("Expérience insuffisante")
 
     return len(reasons) == 0, reasons
-
-
-def compute_experience_adjustment(min_years: float, cv_years: float, weight: float) -> Tuple[float, float]:
-    """Return (bonus, penalty) for experience with progressive scaling."""
-    gap = cv_years - min_years
-    denominator = max(1.0, min_years)
-
-    if gap >= 0:
-        # At threshold -> 50% of weight, then ramps to 100% when profile is clearly above requirement.
-        ratio = min(1.0, 0.5 + (gap / denominator) * 0.5)
-        return weight * ratio, 0.0
-
-    # Below requirement -> progressive penalty up to full weight.
-    deficit_ratio = min(1.0, abs(gap) / denominator)
-    return 0.0, weight * (0.5 + 0.5 * deficit_ratio)
 
 
 def encode_texts(texts: Sequence[str]) -> np.ndarray:
@@ -811,114 +718,88 @@ def rank_with_pgvector(
         return None
 
 
+def active_weights() -> dict[str, float]:
+    return {
+        "semantic": settings.w_semantic,
+        "skills": settings.w_skills,
+        "keywords": settings.w_keywords,
+        "experience": settings.w_experience,
+        "jobtype": settings.w_jobtype,
+        "category": settings.w_category,
+        "location": settings.w_location,
+        "salary": settings.w_salary,
+        "qualification": settings.w_qualification,
+    }
+
+
 def build_score(
     job: PreparedJob, cv: PreparedCv, similarity: float, rank: int, rerank_score: Optional[float] = None
 ) -> ScoreItem:
+    # Moyenne pondérée renormalisée sur les composantes ayant un vrai signal
+    # + plafond de couverture skills/mots-clés — même logique que
+    # match_parsed_documents() chez AI Real-Time (matcher.py). Voir
+    # app/scoring.py pour le détail de chaque composante.
+    result: ScoreResult = compute_final_score(job, cv, similarity, rerank_score, active_weights())
+
     strengths: List[str] = []
     weaknesses: List[str] = []
+    low = set(result.low_confidence_components)
 
-    keyword_hits = sorted(job.keyword_set.intersection(cv.keyword_set | cv.text_tokens))
-    if keyword_hits:
-        strengths.append(f"Mots-clés ({', '.join(keyword_hits[:5])})")
-    else:
+    if result.keyword_hits:
+        strengths.append(f"Mots-clés ({', '.join(result.keyword_hits[:5])})")
+    elif job.keyword_set:
         weaknesses.append("Aucun mot-clé commun identifié")
 
-    # Recoupement via la taxonomie (synonymes techniques + ROME) : capte des
-    # correspondances que la comparaison de tokens bruts rate ("JS" vs
-    # "JavaScript"). Bonus additif, distinct du bonus mots-clés ci-dessus.
-    skill_hits = sorted(job.skills_canonical.intersection(cv.skills_canonical))
-    if skill_hits:
-        strengths.append(f"Compétences reconnues ({', '.join(skill_hits[:5])})")
+    if result.skill_hits:
+        strengths.append(f"Compétences reconnues ({', '.join(result.skill_hits[:5])})")
+    elif job.skills_canonical:
+        weaknesses.append("Aucune compétence reconnue en commun")
 
     title_overlap = job.tokens.intersection(cv.title_tokens)
     if title_overlap:
         strengths.append(f"Titre proche ({', '.join(sorted(title_overlap)[:3])})")
-    else:
-        weaknesses.append("Titre éloigné du besoin")
 
-    structure_bonus = 0.0
-    structure_penalty = 0.0
+    if "qualification" not in low:
+        if cv.qualified:
+            strengths.append("Profil déclaré qualifié pour le poste")
+        else:
+            weaknesses.append("Profil déclaré non qualifié")
 
-    if cv.qualified is True:
-        strengths.append("Profil déclaré qualifié pour le poste")
-    elif cv.qualified is False:
-        weaknesses.append("Profil déclaré non qualifié")
-        structure_penalty += settings.qualification_penalty
-
-    if job.jobtype and cv.jobtype:
-        if overlap_text(job.jobtype, cv.jobtype):
+    if "jobtype" not in low:
+        if result.breakdown["jobtype"] == 1.0:
             strengths.append("Type de contrat compatible")
-            structure_bonus += settings.jobtype_weight
         else:
             weaknesses.append("Type de contrat différent")
-            structure_penalty += settings.jobtype_weight
 
-    if job.category and cv.category:
-        if overlap_text(job.category, cv.category):
+    if "category" not in low:
+        if result.breakdown["category"] == 1.0:
             strengths.append("Catégorie métier alignée")
-            structure_bonus += settings.category_weight
         else:
             weaknesses.append("Catégorie métier différente")
-            structure_penalty += settings.category_weight / 2
 
-    if job.min_experience_years is not None and cv.experience_years is not None:
-        experience_bonus, experience_penalty = compute_experience_adjustment(
-            job.min_experience_years,
-            cv.experience_years,
-            settings.experience_weight,
-        )
+    if "experience" not in low:
         if cv.experience_years >= job.min_experience_years:
             strengths.append(f"Expérience suffisante ({cv.experience_years:g} ans)")
         else:
             weaknesses.append(f"Expérience inférieure ({cv.experience_years:g} ans)")
-        structure_bonus += experience_bonus
-        structure_penalty += experience_penalty
 
-    if job.salary_max is not None and cv.salary_expected_min is not None:
-        if cv.salary_expected_min <= job.salary_max:
+    if "salary" not in low:
+        if result.breakdown["salary"] == 1.0:
             strengths.append("Prétention salariale compatible")
-            structure_bonus += settings.salary_weight
         else:
             weaknesses.append("Prétention salariale au-dessus du budget")
-            structure_penalty += settings.salary_weight
 
-    location_bonus = 0.0
-    if job.location and cv.location:
-        if job.location in cv.location or cv.location in job.location:
+    if "location" not in low:
+        if result.breakdown["location"] == 1.0:
             strengths.append("Localisation compatible")
-            location_bonus = settings.location_weight
         else:
             weaknesses.append("Localisation différente")
-
-    semantic_similarity = rerank_score if rerank_score is not None else similarity
-    base_score = max(0.0, semantic_similarity) * 70
-    skills_bonus = len(skill_hits) * settings.skill_weight
-    score = base_score + len(keyword_hits) * settings.keyword_weight + skills_bonus
-    if title_overlap:
-        score += settings.title_weight
-    score += location_bonus
-    score += structure_bonus
-    score -= structure_penalty
-
-    # Plafond par couverture de compétences (même logique qu'AI Real-Time,
-    # eb1ca39) : une bonne similarité sémantique plus des bonus titre/
-    # structure favorables peut pousser un CV qui rate la plupart des
-    # compétences demandées dans une zone de score élevé, sur du seul
-    # vocabulaire professionnel générique partagé avec l'offre. La
-    # couverture de compétences plafonne le score : 50% à couverture nulle,
-    # 100% à couverture complète — seulement quand l'offre a des
-    # compétences identifiables auxquelles comparer (sinon pas de plafond).
-    if job.skills_canonical:
-        skill_coverage = len(skill_hits) / len(job.skills_canonical)
-        score = min(score, 50.0 + 50.0 * skill_coverage)
-
-    score = float(max(0.0, min(100.0, score)))
 
     extra = {
         "vector_similarity": round(float(similarity), 4),
         "cross_encoder_score": round(float(rerank_score), 4) if rerank_score is not None else None,
-        "keyword_hits": keyword_hits,
-        "skill_hits": skill_hits,
+        "keyword_hits": result.keyword_hits,
+        "skill_hits": result.skill_hits,
         "rank": rank + 1,
         "cv_category": cv.category,
         "cv_jobtype": cv.jobtype,
@@ -926,23 +807,17 @@ def build_score(
         "cv_salary_min": cv.salary_expected_min,
         "cv_salary_max": cv.salary_expected_max,
         "cv_qualified": cv.qualified,
-        "score_breakdown": {
-            "semantic": round(base_score, 4),
-            "keyword_bonus": round(len(keyword_hits) * settings.keyword_weight, 4),
-            "skills_bonus": round(skills_bonus, 4),
-            "title_bonus": round(settings.title_weight if title_overlap else 0.0, 4),
-            "location_bonus": round(location_bonus, 4),
-            "structure_bonus": round(structure_bonus, 4),
-            "structure_penalty": round(structure_penalty, 4),
-        },
+        "weights": result.weights,
+        "score_breakdown": result.breakdown,
+        "low_confidence_components": result.low_confidence_components,
     }
 
     return ScoreItem(
         cv_id=cv.payload.id,
-        score=round(score, 2),
+        score=result.score,
         strengths=strengths,
         weaknesses=weaknesses,
-        keywords=keyword_hits,
+        keywords=result.keyword_hits,
         extra=extra,
     )
 
