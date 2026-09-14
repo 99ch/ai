@@ -51,12 +51,16 @@ _TECH_SKILLS: Dict[str, List[str]] = {
     "MongoDB": ["mongodb", "mongo"],
     "Docker": ["docker"],
     "Kubernetes": ["kubernetes", "k8s"],
-    "Git": ["git"],
+    "Git": ["git", "bitbucket", "bitbuckets"],
     "Linux": ["linux"],
     "WordPress": ["wordpress", "wp"],
     "React": ["react", "react.js", "reactjs"],
     "Angular": ["angular", "angularjs"],
-    "Vue.js": ["vue", "vue.js", "vuejs"],
+    # Pas d'alias "vue" seul : c'est un mot français très courant ("point de
+    # vue", "en vue de", "revue") — faux positif confirmé chez AI Real-Time
+    # (36673c6), corrigé de la même façon ici avant même d'avoir été observé
+    # en prod chez nous.
+    "Vue.js": ["vue.js", "vuejs"],
     "jQuery": ["jquery"],
     "Bootstrap": ["bootstrap"],
     "Symfony": ["symfony"],
@@ -75,6 +79,29 @@ def _fold(value: str) -> str:
     return value.lower().strip()
 
 
+# Alias ROME courts (>= 2 caractères) qui collident avec des mots
+# grammaticaux français très fréquents une fois le texte tokenisé — trouvé
+# chez AI Real-Time sur le même fichier rome_skills_data.json (cd8e45e) :
+# "son" -> canonique "Son" matche le possessif "son/sa/ses" dans n'importe
+# quelle phrase ("...pour son équipe..."). Les alias 1 caractère ("c" -> "C")
+# sont déjà exclus catégoriquement ci-dessous.
+_ROME_ALIAS_STOPWORDS: frozenset[str] = frozenset({"son"})
+
+# Libellés canoniques rencontrés dans NOTRE copie de rome_skills_data.json
+# (vérifié) qui sont du vocabulaire professionnel générique plutôt que des
+# compétences concrètes — une offre qui dit juste "bonne communication" ou
+# "sens du service" ne devrait pas compter comme une compétence technique
+# au même titre que "Docker" ou "SQL". Même liste/logique qu'AI Real-Time
+# (a4f576f/61886a9), réduite aux entrées confirmées présentes dans ce
+# fichier partagé (le reste de leur liste vient de leur propre dictionnaire
+# _SKILLS, que nous n'avons pas).
+_GENERIC_SKILL_CANONICALS: frozenset[str] = frozenset({
+    "Contrôle qualité",
+    "Ecoute active",
+    "Gestion du temps",
+})
+
+
 @lru_cache(maxsize=1)
 def _load_lookup() -> Dict[str, str]:
     """alias replié -> libellé canonique.
@@ -82,11 +109,20 @@ def _load_lookup() -> Dict[str, str]:
     _TECH_SKILLS est chargé en premier et prioritaire (via setdefault, ROME
     ne peut jamais l'écraser) ; ROME ne fait que combler les trous. Le
     fichier ROME manquant/corrompu ne fait pas échouer le module.
+
+    N'indexe que les alias explicitement déclarés, jamais le nom canonique
+    lui-même : AI Real-Time indexait aussi le canonique comme alias
+    implicite, et sur ce même fichier ROME (8508 entrées, souvent nommées
+    d'un simple mot métier générique : "Distribution", "Qualité",
+    "Management"...) ça faisait matcher n'importe quelle occurrence isolée
+    de ce mot, sans rapport avec la compétence (corrigé chez eux en
+    2d670be). Les alias explicites de rome_skills_data.json couvrent déjà
+    la forme repliée du canonique quand c'est pertinent.
     """
     lookup: Dict[str, str] = {}
 
     for canonical, aliases in _TECH_SKILLS.items():
-        for alias in [canonical, *aliases]:
+        for alias in aliases:
             key = _fold(alias)
             if len(key) <= 1:
                 continue
@@ -99,10 +135,11 @@ def _load_lookup() -> Dict[str, str]:
             raw = {}
 
         for canonical, aliases in raw.items():
-            candidates = [canonical, *aliases] if isinstance(aliases, list) else [canonical]
-            for alias in candidates:
+            if not isinstance(aliases, list):
+                continue
+            for alias in aliases:
                 key = _fold(str(alias))
-                if len(key) <= 1:
+                if len(key) <= 1 or key in _ROME_ALIAS_STOPWORDS:
                     continue
                 lookup.setdefault(key, canonical)
 
@@ -141,7 +178,11 @@ def find_skills(text: str, max_results: int = 50) -> List[str]:
             candidate = " ".join(tokens[i : i + size])
             canonical = lookup.get(_fold(candidate))
             if canonical:
-                if canonical not in seen:
+                # Vocabulaire professionnel générique (voir
+                # _GENERIC_SKILL_CANONICALS) : les tokens sont bien
+                # consommés (pas de rescan à une taille plus courte), mais
+                # le "match" n'est jamais ajouté aux compétences détectées.
+                if canonical not in _GENERIC_SKILL_CANONICALS and canonical not in seen:
                     seen.add(canonical)
                     found.append(canonical)
                     if len(found) >= max_results:
