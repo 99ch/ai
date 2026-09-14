@@ -27,6 +27,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from tika import parser
 
+from app import extraction
 from app.db import get_engine, init_db
 from app.models import CvEmbedding, JobEmbedding
 from app.taxonomy import find_skills
@@ -374,6 +375,17 @@ def fetch_remote_file(url: str) -> Optional[Path]:
 
 
 def text_from_file(path: Path) -> str:
+    # Pour .pdf/.docx/.txt, l'extraction consciente des colonnes (portée
+    # depuis AI Real-Time) donne une bien meilleure fidélité qu'une lecture
+    # naïve, en particulier sur les CV à deux colonnes (barre latérale +
+    # corps principal) — voir app/extraction.py. Tika reste le repli pour
+    # ces formats en cas d'échec, et le seul chemin pour les autres formats.
+    if path.suffix.lower() in {".pdf", ".docx", ".txt"}:
+        column_aware_text = extraction.extract_text(path)
+        if column_aware_text:
+            return normalize_whitespace(column_aware_text)
+        logging.warning("Extraction consciente des colonnes vide pour %s, repli sur Tika", path)
+
     try:
         parsed = parser.from_file(str(path))
         content = parsed.get("content") or ""
