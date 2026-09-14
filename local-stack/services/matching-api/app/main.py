@@ -211,6 +211,7 @@ class ScoreResponse(BaseModel):
 @dataclass(slots=True)
 class PreparedJob:
     text: str
+    semantic_text: str
     tokens: set[str]
     keywords: List[str]
     keyword_set: set[str]
@@ -473,6 +474,13 @@ def prepare_job(job: JobPayload) -> PreparedJob:
     keywords = list(dict.fromkeys(keywords))
     text_parts = [job.title, job.description, job.content, job.excerpt, " ".join(keywords), meta.get("experience", "")]
     text = normalize_whitespace(" ".join(filter(None, text_parts)))
+    # Texte dédié au cross-encoder, en langage naturel uniquement : lui coller
+    # la liste de mots-clés bruts (utile pour l'embedding, tolérant au
+    # sac-de-mots) a fait chuter un score cross-encoder de 0.56 à 0.005 sur un
+    # cas réel — le cross-encoder juge la cohérence de la phrase, pas juste
+    # la présence de mots. Repli sur `text` si les champs naturels sont vides.
+    semantic_parts = [job.title, job.description, job.content, job.excerpt]
+    semantic_text = normalize_whitespace(" ".join(filter(None, semantic_parts))) or text
     location = (job.location or meta.get("location") or "").lower()
     tokens = tokenize(f"{job.title} {job.description}")
     category = normalized_text(find_first(meta, ["jobcategory_text", "category_text", "job_category", "category"]))
@@ -484,6 +492,7 @@ def prepare_job(job: JobPayload) -> PreparedJob:
 
     return PreparedJob(
         text=text,
+        semantic_text=semantic_text,
         tokens=tokens,
         keywords=keywords,
         keyword_set=set(keywords),
@@ -702,7 +711,7 @@ def rerank_with_cross_encoder(
         return {}
 
     limit = max(0, min(top_k, len(ranked)))
-    return {cv.payload.id: cross_encode_best(job.text, cv.text) for cv, _sim in ranked[:limit]}
+    return {cv.payload.id: cross_encode_best(job.semantic_text, cv.text) for cv, _sim in ranked[:limit]}
 
 
 def rank_with_faiss(job: PreparedJob, candidates: List[PreparedCv], top_k: int) -> List[Tuple[PreparedCv, float]]:
@@ -881,6 +890,19 @@ def build_score(
     score += location_bonus
     score += structure_bonus
     score -= structure_penalty
+
+    # Plafond par couverture de compétences (même logique qu'AI Real-Time,
+    # eb1ca39) : une bonne similarité sémantique plus des bonus titre/
+    # structure favorables peut pousser un CV qui rate la plupart des
+    # compétences demandées dans une zone de score élevé, sur du seul
+    # vocabulaire professionnel générique partagé avec l'offre. La
+    # couverture de compétences plafonne le score : 50% à couverture nulle,
+    # 100% à couverture complète — seulement quand l'offre a des
+    # compétences identifiables auxquelles comparer (sinon pas de plafond).
+    if job.skills_canonical:
+        skill_coverage = len(skill_hits) / len(job.skills_canonical)
+        score = min(score, 50.0 + 50.0 * skill_coverage)
+
     score = float(max(0.0, min(100.0, score)))
 
     extra = {
