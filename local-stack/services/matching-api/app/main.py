@@ -103,7 +103,9 @@ settings = Settings()
 _model: Optional[SentenceTransformer] = None
 _model_lock = Lock()
 _cross_encoder: Optional[CrossEncoder] = None
-_cross_encoder_unavailable = False
+_cross_encoder_disabled = False  # settings.crossencoder_enabled == False -- permanent, délibéré
+_cross_encoder_last_failure: Optional[float] = None  # time.monotonic() du dernier échec de chargement
+_CROSS_ENCODER_RETRY_COOLDOWN_S = 300
 _cross_encoder_lock = Lock()
 _pgvector_ready = False
 
@@ -130,6 +132,32 @@ def warmup_model() -> None:
         logging.info("Model preloaded and warmed in %d ms", elapsed_ms)
     except Exception as exc:  # noqa: BLE001
         logging.warning("Model warmup failed: %s", exc)
+
+
+@app.on_event("startup")
+def warmup_cross_encoder_model() -> None:
+    """Précharge aussi le cross-encoder au démarrage, pas seulement l'embedding.
+
+    AI Real-Time n'avait qu'un warm-up pour Docling au départ ; tous les
+    autres modèles (dont le cross-encoder) chargeaient au premier usage réel
+    — un premier document après (re)démarrage payait le coût de chargement
+    à froid de chaque modèle touché, en série, dans la requête elle-même
+    (150+ s observés en production, au-delà des timeouts du frontend).
+    get_cross_encoder() gère déjà ses propres erreurs (retry/cooldown) ; ce
+    warm-up ne fait que déclencher le même chemin plus tôt.
+    """
+    if not settings.preload_model or not settings.crossencoder_enabled:
+        return
+
+    started = time.perf_counter()
+    model = get_cross_encoder()
+    if model is not None:
+        try:
+            model.predict([("warmup", "warmup")])
+            elapsed_ms = int((time.perf_counter() - started) * 1000)
+            logging.info("Cross-encoder preloaded and warmed in %d ms", elapsed_ms)
+        except Exception as exc:  # noqa: BLE001
+            logging.warning("Cross-encoder warmup predict failed: %s", exc)
 
 
 class JobPayload(BaseModel):
@@ -573,20 +601,57 @@ def embedding_text(value: str, kind: str) -> str:
 
 
 def get_cross_encoder() -> Optional[CrossEncoder]:
-    global _cross_encoder, _cross_encoder_unavailable
+    """Charge le cross-encoder paresseusement, en retentant après un cooldown
+    plutôt qu'en mettant en cache un échec pour toujours.
 
-    if not settings.crossencoder_enabled or _cross_encoder_unavailable:
+    Constaté chez AI Real-Time en production : la chaîne d'import du modèle
+    (sentence_transformers -> transformers -> torch -> sympy) est assez
+    lourde pour qu'un simple accroc transitoire au tout premier appel de
+    scoring (contention CPU/mémoire au cold-start, disque lent) la fasse
+    échouer une fois -- le même import réussit sans problème peu après.
+    Mettre en cache cet échec unique comme un sentinel "indisponible"
+    permanent aplatissait silencieusement la composante sémantique de chaque
+    match (poids important dans le score final) à un 0.5 neutre jusqu'au
+    prochain redémarrage. Un retry borné permet de s'auto-corriger.
+
+    crossencoder_enabled=False reste un opt-out permanent et délibéré ; seul
+    un échec de chargement déclenche le comportement de retry.
+    """
+    global _cross_encoder, _cross_encoder_disabled, _cross_encoder_last_failure
+
+    if _cross_encoder is not None:
+        return _cross_encoder
+    if _cross_encoder_disabled:
         return None
 
-    if _cross_encoder is None:
-        with _cross_encoder_lock:
-            if _cross_encoder is None and not _cross_encoder_unavailable:
-                try:
-                    logging.info("Loading cross-encoder model %s", settings.crossencoder_model)
-                    _cross_encoder = CrossEncoder(settings.crossencoder_model)
-                except Exception as exc:  # noqa: BLE001
-                    logging.warning("Cross-encoder indisponible, rerank désactivé: %s", exc)
-                    _cross_encoder_unavailable = True
+    with _cross_encoder_lock:
+        if _cross_encoder is not None:
+            return _cross_encoder
+        if _cross_encoder_disabled:
+            return None
+
+        if not settings.crossencoder_enabled:
+            _cross_encoder_disabled = True
+            return None
+
+        now = time.monotonic()
+        if (
+            _cross_encoder_last_failure is not None
+            and now - _cross_encoder_last_failure < _CROSS_ENCODER_RETRY_COOLDOWN_S
+        ):
+            return None
+
+        try:
+            logging.info("Loading cross-encoder model %s", settings.crossencoder_model)
+            _cross_encoder = CrossEncoder(settings.crossencoder_model)
+            _cross_encoder_last_failure = None
+        except Exception as exc:  # noqa: BLE001
+            _cross_encoder_last_failure = now
+            logging.warning(
+                "Cross-encoder indisponible (%s), rerank neutre à 0.5, nouvel essai dans %ss",
+                exc,
+                _CROSS_ENCODER_RETRY_COOLDOWN_S,
+            )
 
     return _cross_encoder
 
