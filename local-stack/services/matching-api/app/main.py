@@ -97,6 +97,7 @@ class Settings:
         "MATCHING_CROSSENCODER_MODEL", "antoinelouis/crossencoder-camembert-large-mmarcoFR"
     )
     crossencoder_top_k: int = int(os.getenv("MATCHING_CROSSENCODER_TOP_K", "30"))
+    tika_timeout_seconds: int = int(os.getenv("MATCHING_TIKA_TIMEOUT_SECONDS", "30"))
 
 
 settings = Settings()
@@ -416,7 +417,15 @@ def text_from_file(path: Path) -> str:
         logging.warning("Extraction consciente des colonnes vide pour %s, repli sur Tika", path)
 
     try:
-        parsed = parser.from_file(str(path))
+        # La lib tika met déjà un timeout par défaut (60s) sur la requête HTTP
+        # au serveur Tika local, mais pas sur la phase de démarrage de la JVM
+        # avant celle-ci (on l'a vu échouer/retenter ~15-20s en test) — le
+        # rendre explicite et plus court évite qu'un fichier pathologique ne
+        # bloque une requête /score entière, dans le même esprit que le
+        # timeout OCR déjà porté d'AI Real-Time (5dd92c6) dans extraction.py.
+        parsed = parser.from_file(
+            str(path), requestOptions={"timeout": settings.tika_timeout_seconds}
+        )
         content = parsed.get("content") or ""
         if content.strip():
             return normalize_whitespace(content)
