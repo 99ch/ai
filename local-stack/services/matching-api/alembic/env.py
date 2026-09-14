@@ -1,12 +1,20 @@
 from __future__ import annotations
 
+import sys
 from logging.config import fileConfig
+from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from app.db import get_dsn
-from app.models import Base
+# Rend l'import de `app` fiable quel que soit le répertoire courant depuis
+# lequel `alembic` est invoqué (alembic.ini::prepend_sys_path = . ne
+# fonctionne que si le CWD est déjà le bon) — même correctif qu'AI Real-Time
+# (4e1b6df), qui l'a ajouté après un import cassé en pratique.
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from app.db import get_dsn  # noqa: E402
+from app.models import Base  # noqa: E402
 
 config = context.config
 
