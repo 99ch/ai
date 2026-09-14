@@ -29,6 +29,7 @@ from tika import parser
 
 from app.db import get_engine, init_db
 from app.models import CvEmbedding, JobEmbedding
+from app.taxonomy import find_skills
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 
@@ -75,6 +76,7 @@ class Settings:
     top_k: int = int(os.getenv("MATCHING_TOP_K", "200"))
     min_similarity: float = float(os.getenv("MATCHING_MIN_SIMILARITY", "0.2"))
     keyword_weight: float = float(os.getenv("MATCHING_KEYWORD_WEIGHT", "5"))
+    skill_weight: float = float(os.getenv("MATCHING_SKILL_WEIGHT", "6"))
     title_weight: float = float(os.getenv("MATCHING_TITLE_WEIGHT", "10"))
     location_weight: float = float(os.getenv("MATCHING_LOCATION_WEIGHT", "5"))
     category_weight: float = float(os.getenv("MATCHING_CATEGORY_WEIGHT", "6"))
@@ -183,6 +185,7 @@ class PreparedJob:
     tokens: set[str]
     keywords: List[str]
     keyword_set: set[str]
+    skills_canonical: set[str]
     location: str
     category: str
     jobtype: str
@@ -199,6 +202,7 @@ class PreparedCv:
     title_tokens: set[str]
     keywords: List[str]
     keyword_set: set[str]
+    skills_canonical: set[str]
     location: str
     category: str
     jobtype: str
@@ -443,6 +447,7 @@ def prepare_job(job: JobPayload) -> PreparedJob:
         tokens=tokens,
         keywords=keywords,
         keyword_set=set(keywords),
+        skills_canonical=set(find_skills(text)),
         location=location,
         category=category,
         jobtype=jobtype,
@@ -485,6 +490,7 @@ def prepare_cv(cv: CvPayload) -> PreparedCv:
         title_tokens=title_tokens,
         keywords=keywords,
         keyword_set=set(keywords),
+        skills_canonical=set(find_skills(text)),
         location=location,
         category=category,
         jobtype=jobtype,
@@ -722,6 +728,13 @@ def build_score(
     else:
         weaknesses.append("Aucun mot-clé commun identifié")
 
+    # Recoupement via la taxonomie (synonymes techniques + ROME) : capte des
+    # correspondances que la comparaison de tokens bruts rate ("JS" vs
+    # "JavaScript"). Bonus additif, distinct du bonus mots-clés ci-dessus.
+    skill_hits = sorted(job.skills_canonical.intersection(cv.skills_canonical))
+    if skill_hits:
+        strengths.append(f"Compétences reconnues ({', '.join(skill_hits[:5])})")
+
     title_overlap = job.tokens.intersection(cv.title_tokens)
     if title_overlap:
         strengths.append(f"Titre proche ({', '.join(sorted(title_overlap)[:3])})")
@@ -784,7 +797,8 @@ def build_score(
 
     semantic_similarity = rerank_score if rerank_score is not None else similarity
     base_score = max(0.0, semantic_similarity) * 70
-    score = base_score + len(keyword_hits) * settings.keyword_weight
+    skills_bonus = len(skill_hits) * settings.skill_weight
+    score = base_score + len(keyword_hits) * settings.keyword_weight + skills_bonus
     if title_overlap:
         score += settings.title_weight
     score += location_bonus
@@ -796,6 +810,7 @@ def build_score(
         "vector_similarity": round(float(similarity), 4),
         "cross_encoder_score": round(float(rerank_score), 4) if rerank_score is not None else None,
         "keyword_hits": keyword_hits,
+        "skill_hits": skill_hits,
         "rank": rank + 1,
         "cv_category": cv.category,
         "cv_jobtype": cv.jobtype,
@@ -806,6 +821,7 @@ def build_score(
         "score_breakdown": {
             "semantic": round(base_score, 4),
             "keyword_bonus": round(len(keyword_hits) * settings.keyword_weight, 4),
+            "skills_bonus": round(skills_bonus, 4),
             "title_bonus": round(settings.title_weight if title_overlap else 0.0, 4),
             "location_bonus": round(location_bonus, 4),
             "structure_bonus": round(structure_bonus, 4),
