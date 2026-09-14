@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import logging
+import math
 import os
 import re
 import secrets
@@ -21,7 +22,7 @@ import requests
 from fastapi import Depends, FastAPI, Header, HTTPException, status
 from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field
-from sentence_transformers import SentenceTransformer
+from sentence_transformers import CrossEncoder, SentenceTransformer
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from tika import parser
@@ -88,11 +89,19 @@ class Settings:
     data_dir: Path = Path(os.getenv("DATA_DIR", "/data/cv_raw"))
     file_fetch_timeout_seconds: int = int(os.getenv("MATCHING_FILE_FETCH_TIMEOUT", "15"))
     file_fetch_max_bytes: int = int(os.getenv("MATCHING_FILE_FETCH_MAX_BYTES", str(20 * 1024 * 1024)))
+    crossencoder_enabled: bool = os.getenv("MATCHING_CROSSENCODER_ENABLED", "1") == "1"
+    crossencoder_model: str = os.getenv(
+        "MATCHING_CROSSENCODER_MODEL", "antoinelouis/crossencoder-camembert-large-mmarcoFR"
+    )
+    crossencoder_top_k: int = int(os.getenv("MATCHING_CROSSENCODER_TOP_K", "30"))
 
 
 settings = Settings()
 _model: Optional[SentenceTransformer] = None
 _model_lock = Lock()
+_cross_encoder: Optional[CrossEncoder] = None
+_cross_encoder_unavailable = False
+_cross_encoder_lock = Lock()
 _pgvector_ready = False
 
 
@@ -545,6 +554,74 @@ def embedding_text(value: str, kind: str) -> str:
     return f"{prefix}{value}"
 
 
+def get_cross_encoder() -> Optional[CrossEncoder]:
+    global _cross_encoder, _cross_encoder_unavailable
+
+    if not settings.crossencoder_enabled or _cross_encoder_unavailable:
+        return None
+
+    if _cross_encoder is None:
+        with _cross_encoder_lock:
+            if _cross_encoder is None and not _cross_encoder_unavailable:
+                try:
+                    logging.info("Loading cross-encoder model %s", settings.crossencoder_model)
+                    _cross_encoder = CrossEncoder(settings.crossencoder_model)
+                except Exception as exc:  # noqa: BLE001
+                    logging.warning("Cross-encoder indisponible, rerank désactivé: %s", exc)
+                    _cross_encoder_unavailable = True
+
+    return _cross_encoder
+
+
+def chunk_text(value: str, max_chars: int = 800, max_chunks: int = 8) -> List[str]:
+    value = value.strip()
+    if not value:
+        return [""]
+    chunks = [value[i : i + max_chars] for i in range(0, len(value), max_chars)]
+    return chunks[:max_chunks] or [""]
+
+
+def cross_encode_best(query: str, document: str) -> float:
+    """Score sémantique fin d'une paire (offre, CV), 0-1 (sigmoïde du logit brut).
+
+    Les deux textes sont découpés en fenêtres de ≤800 caractères (8 max
+    chacun) pour rester robuste sur les CV longs ; on garde la meilleure
+    paire de fenêtres plutôt qu'une moyenne, pour ne pas diluer un bon match
+    localisé dans un texte par ailleurs peu pertinent.
+    """
+    model = get_cross_encoder()
+    if model is None:
+        return 0.5
+
+    pairs = [(q, d) for q in chunk_text(query) for d in chunk_text(document)]
+
+    try:
+        raw_scores = model.predict(pairs)
+    except Exception as exc:  # noqa: BLE001
+        logging.warning("Cross-encoder predict a échoué: %s", exc)
+        return 0.5
+
+    if len(raw_scores) == 0:
+        return 0.5
+
+    best_raw = float(np.max(raw_scores))
+    return 1.0 / (1.0 + math.exp(-best_raw))
+
+
+def rerank_with_cross_encoder(
+    job: PreparedJob, ranked: List[Tuple[PreparedCv, float]], top_k: int
+) -> dict[int, float]:
+    """Score cross-encoder pour le top-k de `ranked` (déjà trié par similarité
+    d'embedding pgvector/FAISS) ; on ne raffine que les meilleurs candidats
+    pour maîtriser le coût CPU. Retourne {cv_id: score} pour ce sous-ensemble.
+    """
+    if not settings.crossencoder_enabled or not ranked:
+        return {}
+
+    limit = max(0, min(top_k, len(ranked)))
+    return {cv.payload.id: cross_encode_best(job.text, cv.text) for cv, _sim in ranked[:limit]}
+
+
 def rank_with_faiss(job: PreparedJob, candidates: List[PreparedCv], top_k: int) -> List[Tuple[PreparedCv, float]]:
     job_embedding = encode_texts([embedding_text(job.text, "query")])[0]
     cv_embeddings = encode_texts([embedding_text(cv.text, "passage") for cv in candidates])
@@ -633,7 +710,9 @@ def rank_with_pgvector(
         return None
 
 
-def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) -> ScoreItem:
+def build_score(
+    job: PreparedJob, cv: PreparedCv, similarity: float, rank: int, rerank_score: Optional[float] = None
+) -> ScoreItem:
     strengths: List[str] = []
     weaknesses: List[str] = []
 
@@ -703,7 +782,8 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
         else:
             weaknesses.append("Localisation différente")
 
-    base_score = max(0.0, similarity) * 70
+    semantic_similarity = rerank_score if rerank_score is not None else similarity
+    base_score = max(0.0, semantic_similarity) * 70
     score = base_score + len(keyword_hits) * settings.keyword_weight
     if title_overlap:
         score += settings.title_weight
@@ -714,6 +794,7 @@ def build_score(job: PreparedJob, cv: PreparedCv, similarity: float, rank: int) 
 
     extra = {
         "vector_similarity": round(float(similarity), 4),
+        "cross_encoder_score": round(float(rerank_score), 4) if rerank_score is not None else None,
         "keyword_hits": keyword_hits,
         "rank": rank + 1,
         "cv_category": cv.category,
@@ -751,6 +832,9 @@ def healthcheck() -> dict:
         "model_cache": os.getenv("MODEL_CACHE", "/models"),
         "data_dir": str(settings.data_dir),
         "pgvector_enabled": _pgvector_ready,
+        "crossencoder_enabled": settings.crossencoder_enabled,
+        "crossencoder_model": settings.crossencoder_model if settings.crossencoder_enabled else None,
+        "crossencoder_loaded": _cross_encoder is not None,
         "time": time.time(),
     }
 
@@ -781,15 +865,19 @@ def score(payload: ScoreRequest, _: None = Depends(require_api_key)) -> ScoreRes
     if ranked is None:
         ranked = rank_with_faiss(job, candidates, settings.top_k)
 
+    # Le cross-encoder affine seulement le top-k retenu par pgvector/FAISS ;
+    # ranked reste trié par similarité d'embedding, pas par ce score.
+    rerank_scores = rerank_with_cross_encoder(job, ranked, settings.crossencoder_top_k)
+
     scored_items: List[ScoreItem] = []
     for rank, (cv, sim) in enumerate(ranked):
         if sim < settings.min_similarity:
             continue
-        scored_items.append(build_score(job, cv, sim, rank))
+        scored_items.append(build_score(job, cv, sim, rank, rerank_scores.get(cv.payload.id)))
 
     if not scored_items and ranked:
         cv, sim = ranked[0]
-        scored_items.append(build_score(job, cv, sim, 0))
+        scored_items.append(build_score(job, cv, sim, 0, rerank_scores.get(cv.payload.id)))
 
     # Final deterministic ranking must follow final score, not raw embedding rank.
     scored_items.sort(
