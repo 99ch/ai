@@ -12,6 +12,20 @@ permissions:
 jobs:
   api-static-checks:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,6 +50,26 @@ jobs:
       - name: Run unit tests
         run: python -m pytest tests
         working-directory: local-stack/services/matching-api
+
+      - name: Alembic migration drift check
+        # Ported from AI Real-Time (cc7a2d5/ea84d80), added the same day
+        # they hit a real production outage from this exact mistake: a
+        # SQLAlchemy model column added without a matching migration,
+        # deployed, and only failing once a real request hit the missing
+        # column. `alembic upgrade head` against a fresh Postgres (this
+        # service container, untouched by anything else in this job) then
+        # `alembic check` fails the build if app/models.py and the
+        # migrations under alembic/versions/ have diverged. Blocking from
+        # the start here (unlike their initial non-blocking rollout): our
+        # migration history has no pre-existing drift backlog to work
+        # around, it starts at 0001.
+        working-directory: local-stack/services/matching-api
+        env:
+          POSTGRES_DSN: postgresql://ci:ci@localhost:5432/ci
+        run: |
+          pip install sqlalchemy==2.0.40 "psycopg[binary]==3.2.6" pgvector==0.3.6 alembic==1.13.3
+          alembic -c alembic.ini upgrade head
+          alembic -c alembic.ini check
 
       - name: Validate n8n workflow JSON
         run: python -m json.tool local-stack/n8n-matching-workflow.json > /dev/null
