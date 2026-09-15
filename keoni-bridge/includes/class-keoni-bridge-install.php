@@ -40,6 +40,10 @@ class Keoni_Bridge_Install {
      * différents. deduplicate_matching_results() nettoie l'historique
      * AVANT que maybe_create_tables() n'essaie d'ajouter la contrainte
      * UNIQUE (dbDelta échouerait sur des données déjà en doublon).
+     *
+     * 0.2.0 -> 0.3.0 : nouvelle table keoni_job_scoring_settings (profil de
+     * scoring par offre) -- simple ajout de table, dbDelta la crée sans
+     * migration de données particulière.
      */
     public static function maybe_upgrade(): void {
         $installed_version = get_option( self::OPTION_VERSION, '' );
@@ -86,9 +90,10 @@ class Keoni_Bridge_Install {
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
-        $charset_collate = $wpdb->get_charset_collate();
-        $cv_table        = $wpdb->prefix . 'cv_database';
-        $match_table     = $wpdb->prefix . 'cv_matching_results';
+        $charset_collate  = $wpdb->get_charset_collate();
+        $cv_table         = $wpdb->prefix . 'cv_database';
+        $match_table      = $wpdb->prefix . 'cv_matching_results';
+        $scoring_settings = $wpdb->prefix . 'keoni_job_scoring_settings';
 
         $sql = [];
 
@@ -120,6 +125,20 @@ class Keoni_Bridge_Install {
             PRIMARY KEY (id),
             UNIQUE KEY job_cv (job_id, cv_id),
             KEY cv_id (cv_id)
+        ) {$charset_collate};";
+
+        // Profil de scoring choisi par le recruteur pour une offre (voir
+        // app/scoring.py::SCORING_PROFILES côté matching-api -- liste de
+        // valeurs valides dupliquée dans Keoni_Bridge_Hooks::SCORING_PROFILES,
+        // à garder synchronisée). Table dédiée plutôt qu'une colonne sur la
+        // table js_job_jobs de js-jobs (plugin tiers, schéma hors de notre
+        // contrôle) : même logique que cv_database/cv_matching_results,
+        // déjà des tables propres à keoni-bridge.
+        $sql[] = "CREATE TABLE {$scoring_settings} (
+            job_id BIGINT UNSIGNED NOT NULL,
+            scoring_profile VARCHAR(32) NOT NULL DEFAULT '',
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            PRIMARY KEY (job_id)
         ) {$charset_collate};";
 
         foreach ( $sql as $statement ) {

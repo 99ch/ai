@@ -14,6 +14,7 @@ if ( ! $keep_data ) {
 
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cv_database" );
     $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}cv_matching_results" );
+    $wpdb->query( "DROP TABLE IF EXISTS {$wpdb->prefix}keoni_job_scoring_settings" );
 }
 
 delete_option( 'keoni_bridge_version' );

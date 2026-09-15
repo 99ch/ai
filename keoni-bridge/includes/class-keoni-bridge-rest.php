@@ -181,6 +181,7 @@ class Keoni_Bridge_Rest {
                 'applyinfo'       => $job['applyinfo'] ?? '',
                 'startpublishing' => $job['startpublishing'] ?? '',
                 'stoppublishing'  => $job['stoppublishing'] ?? '',
+                'scoring_profile' => Keoni_Bridge_Repository::get_job_scoring_profile( $job_id ),
             ],
             'permalink'  => $this->build_job_permalink( $job_id ),
             'updated_at' => $this->job_updated_at( $job ),

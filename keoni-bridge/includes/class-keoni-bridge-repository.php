@@ -286,6 +286,44 @@ class Keoni_Bridge_Repository {
         return $deleted;
     }
 
+    public static function get_job_scoring_profile( int $job_id ): string {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'keoni_job_scoring_settings';
+        $value = $wpdb->get_var(
+            $wpdb->prepare( "SELECT scoring_profile FROM {$table} WHERE job_id = %d", $job_id )
+        );
+
+        return $value ? (string) $value : '';
+    }
+
+    /**
+     * '' (chaîne vide) est une valeur valide : elle signifie "profil par
+     * défaut / équilibré", pas "non renseigné" -- côté matching-api,
+     * job.scoring_profile vide retombe silencieusement sur DEFAULT_WEIGHTS
+     * (voir app/scoring.py::weights_for_profile).
+     */
+    public static function set_job_scoring_profile( int $job_id, string $profile ): bool {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'keoni_job_scoring_settings';
+
+        $result = $wpdb->query(
+            $wpdb->prepare(
+                "INSERT INTO {$table} (job_id, scoring_profile, updated_at)
+                 VALUES (%d, %s, %s)
+                 ON DUPLICATE KEY UPDATE
+                    scoring_profile = VALUES(scoring_profile),
+                    updated_at = VALUES(updated_at)",
+                $job_id,
+                $profile,
+                current_time( 'mysql', true )
+            )
+        );
+
+        return false !== $result;
+    }
+
     public static function get_resumes_by_emails( array $emails ): array {
         global $wpdb;
 

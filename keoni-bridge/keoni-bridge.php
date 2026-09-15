@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const KEONI_BRIDGE_VERSION = '0.2.0';
+const KEONI_BRIDGE_VERSION = '0.3.0';
 const KEONI_BRIDGE_MIN_PHP = '8.0';
 
 if ( version_compare( PHP_VERSION, KEONI_BRIDGE_MIN_PHP, '<' ) ) {

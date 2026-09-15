@@ -10,6 +10,11 @@ if ( ! defined( 'ABSPATH' ) ) {
 class Keoni_Bridge_Hooks {
     private string $option_last_scan = 'keoni_bridge_last_job_scan';
 
+    // Doit rester synchronisé avec app/scoring.py::SCORING_PROFILES côté
+    // matching-api -- ce sont les seuls noms de profil que _weights()
+    // reconnaît, un nom inconnu y retombe silencieusement sur le défaut.
+    private const SCORING_PROFILES = [ 'equilibre', 'priorite_experience', 'priorite_mots_cles' ];
+
     public function __construct() {
         add_action( 'publish_post', [ $this, 'handle_publish' ], 10, 2 );
         add_action( 'keoni_bridge_trigger_matching', [ $this, 'trigger_webhook' ], 10, 2 );
@@ -19,6 +24,7 @@ class Keoni_Bridge_Hooks {
         add_action( 'wp_ajax_keoni_bridge_run_matching', [ $this, 'ajax_run_matching' ] );
         add_action( 'wp_ajax_keoni_bridge_matching_status', [ $this, 'ajax_matching_status' ] );
         add_action( 'wp_ajax_keoni_bridge_reset_matching', [ $this, 'ajax_reset_matching' ] );
+        add_action( 'wp_ajax_keoni_bridge_save_scoring_profile', [ $this, 'ajax_save_scoring_profile' ] );
 
         if ( ! wp_next_scheduled( 'keoni_bridge_scan_jobs' ) ) {
             wp_schedule_event( time() + 60, 'five_minutes', 'keoni_bridge_scan_jobs' );
@@ -148,6 +154,49 @@ class Keoni_Bridge_Hooks {
         wp_send_json_success( [
             'message' => __( 'Résultats IA réinitialisés.', 'keoni-bridge' ),
             'deleted' => $deleted,
+        ] );
+    }
+
+    public function ajax_save_scoring_profile(): void {
+        check_ajax_referer( 'keoni_bridge_save_scoring_profile', 'nonce' );
+
+        $job_id  = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
+        $profile = isset( $_POST['scoring_profile'] ) ? sanitize_key( wp_unslash( $_POST['scoring_profile'] ) ) : '';
+
+        if ( $job_id <= 0 ) {
+            wp_send_json_error( [ 'message' => __( 'Job invalide.', 'keoni-bridge' ) ], 400 );
+        }
+
+        if ( ! $this->user_can_manage_job_matching( $job_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
+        }
+
+        if ( '' !== $profile && ! in_array( $profile, self::SCORING_PROFILES, true ) ) {
+            wp_send_json_error( [ 'message' => __( 'Profil de scoring inconnu.', 'keoni-bridge' ) ], 422 );
+        }
+
+        $previous_profile = Keoni_Bridge_Repository::get_job_scoring_profile( $job_id );
+
+        if ( ! Keoni_Bridge_Repository::set_job_scoring_profile( $job_id, $profile ) ) {
+            wp_send_json_error( [ 'message' => __( 'Échec de l\'enregistrement.', 'keoni-bridge' ) ], 500 );
+        }
+
+        // Les résultats déjà stockés ont été calculés sous l'ANCIEN profil
+        // (ou l'absence de profil) -- les laisser affichés silencieusement
+        // les ferait passer pour à jour alors qu'ils ne le sont plus.
+        // Effacés uniquement si le profil a réellement changé : resélectionner
+        // par erreur la même valeur ne doit pas détruire des résultats valides.
+        $cleared = 0;
+        if ( $previous_profile !== $profile ) {
+            $cleared = Keoni_Bridge_Repository::delete_matching_results( $job_id );
+        }
+
+        wp_send_json_success( [
+            'message'         => $cleared > 0
+                ? __( 'Profil de scoring enregistré. Relancez l\'IA pour recalculer les scores sous ce profil.', 'keoni-bridge' )
+                : __( 'Profil de scoring enregistré.', 'keoni-bridge' ),
+            'scoring_profile' => $profile,
+            'cleared_results' => $cleared,
         ] );
     }
 
