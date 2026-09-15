@@ -152,7 +152,7 @@ def test_split_priority_keyword_terms_does_not_split_on_slash():
 
 
 def test_normalize_priority_keyword_falls_back_to_none_for_unknown_term():
-    assert normalize_priority_keyword("LOD2 XYZZY") is None
+    assert normalize_priority_keyword("TRM XYZZY") is None
 
 
 def test_normalize_priority_keyword_splits_on_slash_when_both_sides_agree():
@@ -167,23 +167,23 @@ def test_normalize_priority_keyword_splits_on_slash_when_both_sides_agree():
 
 
 def test_enrich_cv_skills_adds_literal_unknown_term_found_in_cv_text():
-    job = make_job(keyword_terms_raw=["LOD2"])
-    cv = make_cv(skills_canonical=set(), text="Expérience sur le référentiel LOD2 en 2023.")
+    job = make_job(keyword_terms_raw=["TRM"])
+    cv = make_cv(skills_canonical=set(), text="Expérience sur le référentiel TRM en 2023.")
     enriched = enrich_cv_skills(job, cv)
-    assert "LOD2" in enriched
+    assert "TRM" in enriched
 
 
 def test_enrich_cv_skills_skips_term_not_present_in_cv_text():
-    job = make_job(keyword_terms_raw=["LOD2"])
+    job = make_job(keyword_terms_raw=["TRM"])
     cv = make_cv(skills_canonical=set(), text="Aucun rapport avec ce sigle.")
     enriched = enrich_cv_skills(job, cv)
-    assert "LOD2" not in enriched
+    assert "TRM" not in enriched
 
 
 def test_enrich_cv_skills_never_mutates_original_set():
-    job = make_job(keyword_terms_raw=["LOD2"])
+    job = make_job(keyword_terms_raw=["TRM"])
     original = {"Python"}
-    cv = make_cv(skills_canonical=original, text="LOD2 partout ici.")
+    cv = make_cv(skills_canonical=original, text="TRM partout ici.")
     enrich_cv_skills(job, cv)
     assert original == {"Python"}  # untouched
 
