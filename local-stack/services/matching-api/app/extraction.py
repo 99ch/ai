@@ -192,7 +192,21 @@ def _detect_column_gutter(lines: list[dict], page_width: float) -> float:
         if gap > best_gap:
             best_gap, best_mid = gap, (prev_end + next_start) / 2
 
-    min_gutter = page_width * 0.04  # exige un vrai espace, pas du bruit entre mots proches
+    # Exige un vrai espace, pas du bruit entre mots proches -- mais pas trop
+    # strict au point de rejeter une vraie gouttière de barre latérale
+    # étroite. Cas réel côté AI Real-Time (audit corpus 13k CV, 2026-09-14,
+    # 38d44a8) : une gouttière réelle mesurant ~3,4% de la largeur de page
+    # tombait juste sous l'ancien seuil de 4%, ce qui faisait retomber cette
+    # fonction sur le milieu exact de la page -- lequel tombait en plein
+    # milieu de la colonne large, réduisant sa part de caractères à ~3% et
+    # déclenchant le repli total sur un tri (y, x) qui mélange barre
+    # latérale et corps principal phrase par phrase. Le seuil de largeur
+    # n'est qu'un garde-fou contre le bruit d'arrondi (un "espace" de 1-2pt),
+    # pas la vraie défense contre un faux positif de coupure -- ce rôle
+    # revient au filtre de part de caractères dans _order_lines_by_column,
+    # qui voit la distribution RÉELLE du texte plutôt qu'une simple largeur
+    # en pixels.
+    min_gutter = page_width * 0.02
     return best_mid if best_gap >= min_gutter else page_width / 2
 
 
@@ -281,12 +295,49 @@ def _find_tables(page) -> list:
     remplissages de tracé, donc un simple template de CV à deux colonnes
     sans aucun cadrage de tableau (le cas déjà géré par
     _order_lines_by_column) est correctement laissé de côté.
+
+    Rejette un tableau détecté si une de ses cellules contient plus d'une
+    poignée de lignes de texte. Cas réel côté AI Real-Time (audit corpus
+    13k CV, 2026-09-14, fa63df2) : sur un CV deux colonnes SANS aucun
+    cadrage de tableau, le détecteur de PyMuPDF (basé sur les espaces
+    blancs) a quand même pris la PAGE ENTIÈRE pour un tableau 2 lignes x 2
+    colonnes -- chaque "cellule" était le texte complet d'une colonne (nom,
+    coordonnées, une section entière, plus d'une dizaine de lignes).
+    _render_table_rows joint alors chaque ligne par tabulation, et
+    clean_text() réduit ensuite cette tabulation à un simple espace comme
+    n'importe quel autre blanc -- fusionnant le dernier titre de la colonne
+    de gauche directement dans le premier titre de la colonne de droite,
+    sans aucun séparateur. Le nombre de lignes seul ne suffit pas à
+    détecter ce cas : le faux tableau avait 2 lignes, comme un petit
+    tableau légitime. Ce qui distingue vraiment les deux, c'est la taille
+    des cellules -- une vraie cellule de tableau de CV (un intitulé de
+    poste, une courte liste de compétences) tient sur une ligne, parfois
+    deux ; une "cellule" contenant plus d'une dizaine de lignes est en
+    réalité une section entière qui n'a jamais été tabulaire.
     """
     try:
-        return list(page.find_tables().tables)
+        tables = list(page.find_tables().tables)
     except Exception as exc:
         logger.warning("Détection de tableau échouée sur une page de %s: %s", getattr(page, "number", "?"), exc)
         return []
+    return [t for t in tables if _is_plausible_table(t.extract())]
+
+
+# Une vraie cellule de tableau de CV (un intitulé de poste, une courte
+# liste de compétences) tient sur une ligne, parfois deux -- une "cellule"
+# contenant ce nombre de lignes est en réalité une section entière qui
+# n'a jamais été tabulaire (voir _find_tables).
+_MAX_PLAUSIBLE_TABLE_CELL_LINES = 5
+
+
+def _is_plausible_table(rows: list[list[str | None]]) -> bool:
+    if len(rows) < 2:
+        return False
+    return not any(
+        (cell or "").count("\n") >= _MAX_PLAUSIBLE_TABLE_CELL_LINES
+        for row in rows
+        for cell in row
+    )
 
 
 def _render_table_rows(rows: list[list[str | None]]) -> str:
