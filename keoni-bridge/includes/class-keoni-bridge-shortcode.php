@@ -101,8 +101,21 @@ class Keoni_Bridge_Shortcode {
                 </article>
             </div>
         </section>
+        <div class="keoni-matching__score-filter" data-keoni-score-filter>
+            <label class="keoni-matching__score-filter-label" for="keoni-score-filter-<?php echo esc_attr( $job_id ); ?>"><?php esc_html_e( 'Score minimum', 'keoni-bridge' ); ?></label>
+            <input type="range"
+                   id="keoni-score-filter-<?php echo esc_attr( $job_id ); ?>"
+                   min="0"
+                   max="100"
+                   step="1"
+                   value="0"
+                   data-keoni-score-slider />
+            <span class="keoni-matching__score-filter-value" data-keoni-score-value>0</span>
+            <span class="keoni-matching__score-filter-count" data-keoni-score-count></span>
+        </div>
         <div class="keoni-matching">
             <?php echo $cards_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+            <div class="keoni-matching__empty keoni-matching__empty--filter" data-keoni-score-empty hidden><?php esc_html_e( 'Aucun candidat au-dessus de ce score.', 'keoni-bridge' ); ?></div>
         </div>
             <div class="keoni-matching__actions">
                 <button type="button"
@@ -207,7 +220,7 @@ class Keoni_Bridge_Shortcode {
             $score_percent = max( 0, min( 100, $score ) );
             $details_open  = ( 1 === $rank_value ) ? ' open' : '';
             ?>
-            <article class="keoni-matching__card keoni-matching__card--resume">
+            <article class="keoni-matching__card keoni-matching__card--resume" data-score="<?php echo esc_attr( number_format( $score, 2, '.', '' ) ); ?>">
                 <div class="keoni-matching__body">
                     <div class="keoni-matching__top">
                         <div class="keoni-matching__avatar">
