@@ -876,3 +876,46 @@
 		max-width: 100%;
 	}
 }
+
+.keoni-matching__score-filter {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	border: 1px solid #dbe5f1;
+	border-radius: 12px;
+	background: #ffffff;
+	padding: 10px 14px;
+	margin: 0 0 14px;
+}
+
+.keoni-matching__score-filter-label {
+	font-size: 12px;
+	font-weight: 600;
+	color: #1e3a8a;
+	text-transform: uppercase;
+	letter-spacing: .03em;
+	white-space: nowrap;
+}
+
+.keoni-matching__score-filter input[type="range"] {
+	flex: 1;
+	accent-color: #1e3a8a;
+}
+
+.keoni-matching__score-filter-value {
+	min-width: 3ch;
+	text-align: right;
+	font-size: 14px;
+	font-weight: 700;
+	color: #0f172a;
+}
+
+.keoni-matching__score-filter-count {
+	font-size: 12px;
+	color: #64748b;
+	white-space: nowrap;
+}
+
+.keoni-matching__card--filtered-out {
+	display: none !important;
+}
