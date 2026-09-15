@@ -22,6 +22,65 @@ class Keoni_Bridge_Install {
         // Rien pour le moment (les tables restent en place).
     }
 
+    /**
+     * Applique les migrations de schéma sur un site déjà actif, à chaque
+     * chargement admin tant que la version stockée n'a pas rattrapé
+     * KEONI_BRIDGE_VERSION -- contrairement à activate(), qui ne tourne
+     * qu'une fois à l'activation du plugin et ne se redéclenche jamais sur
+     * un site déjà en production après un simple déploiement de code.
+     *
+     * 0.1.0 -> 0.2.0 : wp_cv_matching_results n'avait aucune clé UNIQUE sur
+     * (job_id, cv_id), donc store_matching() (qui utilise $wpdb->replace())
+     * se comportait comme un simple INSERT à chaque "Lancer IA" -- chaque
+     * relance accumulait de nouvelles lignes au lieu de remplacer les
+     * anciennes pour le même candidat. get_matching_results() compensait en
+     * lecture avec un MAX() indépendant par colonne (score, strengths,
+     * extra...), ce qui pouvait afficher un score et un détail (extra)
+     * venant de DEUX lignes différentes après une relance aux résultats
+     * différents. deduplicate_matching_results() nettoie l'historique
+     * AVANT que maybe_create_tables() n'essaie d'ajouter la contrainte
+     * UNIQUE (dbDelta échouerait sur des données déjà en doublon).
+     */
+    public static function maybe_upgrade(): void {
+        $installed_version = get_option( self::OPTION_VERSION, '' );
+
+        if ( $installed_version === KEONI_BRIDGE_VERSION ) {
+            return;
+        }
+
+        if ( version_compare( (string) $installed_version, '0.2.0', '<' ) ) {
+            self::deduplicate_matching_results();
+        }
+
+        self::maybe_create_tables();
+        update_option( self::OPTION_VERSION, KEONI_BRIDGE_VERSION );
+    }
+
+    /**
+     * Ne garde que la ligne la plus récente (updated_at, puis id en cas
+     * d'égalité) par (job_id, cv_id) dans wp_cv_matching_results, pour que
+     * l'ajout de la contrainte UNIQUE par maybe_create_tables() ne
+     * rencontre plus aucun doublon.
+     */
+    private static function deduplicate_matching_results(): void {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'cv_matching_results';
+
+        if ( $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) !== $table ) {
+            return;
+        }
+
+        $wpdb->query(
+            "DELETE t1 FROM {$table} t1
+             INNER JOIN {$table} t2
+               ON t1.job_id = t2.job_id
+              AND t1.cv_id = t2.cv_id
+              AND ( t1.updated_at < t2.updated_at
+                    OR ( t1.updated_at = t2.updated_at AND t1.id < t2.id ) )"
+        );
+    }
+
     private static function maybe_create_tables(): void {
         global $wpdb;
 
@@ -59,7 +118,7 @@ class Keoni_Bridge_Install {
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (id),
-            KEY job_id (job_id),
+            UNIQUE KEY job_cv (job_id, cv_id),
             KEY cv_id (cv_id)
         ) {$charset_collate};";
 

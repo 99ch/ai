@@ -85,18 +85,15 @@ class Keoni_Bridge_Repository {
 
         $table = $wpdb->prefix . 'cv_matching_results';
 
+        // Une seule ligne par (job_id, cv_id) depuis la contrainte UNIQUE
+        // posée en 0.2.0 (voir Keoni_Bridge_Install) -- plus besoin du
+        // GROUP BY + MAX() par colonne d'avant, qui pouvait mélanger le
+        // score d'une relance avec le détail (extra) d'une autre.
         $query = $wpdb->prepare(
             "SELECT SQL_CALC_FOUND_ROWS
-                    cv_id,
-                    MAX(score) AS score,
-                    MAX(strengths) AS strengths,
-                    MAX(weaknesses) AS weaknesses,
-                    MAX(keywords) AS keywords,
-                    MAX(extra) AS extra,
-                    MAX(updated_at) AS updated_at
+                    cv_id, score, strengths, weaknesses, keywords, extra, updated_at
              FROM {$table}
              WHERE job_id = %d AND score >= %f
-             GROUP BY cv_id
              ORDER BY score DESC
              LIMIT %d OFFSET %d",
             $job_id,
@@ -147,6 +144,8 @@ class Keoni_Bridge_Repository {
 
         $table = $wpdb->prefix . 'cv_matching_results';
 
+        // Une seule ligne par (job_id, cv_id) depuis 0.2.0 -- plus besoin
+        // de la sous-requête groupée d'avant (voir get_matching_results).
         $aggregates = $wpdb->get_row(
             $wpdb->prepare(
                 "SELECT
@@ -156,15 +155,8 @@ class Keoni_Bridge_Repository {
                     MAX(score) AS best_score,
                     MIN(score) AS min_score,
                     MAX(updated_at) AS last_updated
-                 FROM (
-                    SELECT
-                        cv_id,
-                        MAX(score) AS score,
-                        MAX(updated_at) AS updated_at
-                    FROM {$table}
-                    WHERE job_id = %d
-                    GROUP BY cv_id
-                 ) grouped",
+                 FROM {$table}
+                 WHERE job_id = %d",
                 $job_id
             ),
             ARRAY_A

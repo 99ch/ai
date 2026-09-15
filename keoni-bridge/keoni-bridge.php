@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const KEONI_BRIDGE_VERSION = '0.1.0';
+const KEONI_BRIDGE_VERSION = '0.2.0';
 const KEONI_BRIDGE_MIN_PHP = '8.0';
 
 if ( version_compare( PHP_VERSION, KEONI_BRIDGE_MIN_PHP, '<' ) ) {
@@ -30,6 +30,7 @@ require_once __DIR__ . '/includes/class-keoni-bridge-install.php';
 require_once __DIR__ . '/includes/class-keoni-bridge.php';
 
 add_action( 'init', 'keoni_bridge_load_textdomain' );
+add_action( 'plugins_loaded', [ 'Keoni_Bridge_Install', 'maybe_upgrade' ] );
 
 function keoni_bridge_load_textdomain(): void {
     load_plugin_textdomain( 'keoni-bridge', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );

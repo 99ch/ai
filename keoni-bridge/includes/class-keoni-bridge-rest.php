@@ -392,20 +392,39 @@ class Keoni_Bridge_Rest {
 
         $table = $wpdb->prefix . 'cv_matching_results';
         $jobId = absint( $payload['job_id'] );
+        $now   = current_time( 'mysql', true );
 
+        // INSERT ... ON DUPLICATE KEY UPDATE plutôt que $wpdb->replace() :
+        // REPLACE INTO supprime puis réinsère la ligne en cas de conflit,
+        // ce qui réinitialiserait created_at à chaque "Lancer IA" au lieu
+        // de ne garder que la date du tout premier score pour ce candidat.
+        // Nécessite la contrainte UNIQUE (job_id, cv_id) posée par
+        // Keoni_Bridge_Install (0.2.0) -- sans elle, ON DUPLICATE KEY
+        // n'aurait rien à détecter et ce serait un simple INSERT à chaque
+        // fois, comme le bug que ça corrige.
         foreach ( $payload['results'] as $result ) {
-            $wpdb->replace(
-                $table,
-                [
-                    'job_id'    => $jobId,
-                    'cv_id'     => absint( $result['cv_id'] ?? 0 ),
-                    'score'     => floatval( $result['score'] ?? 0 ),
-                    'strengths' => wp_json_encode( $result['strengths'] ?? [] ),
-                    'weaknesses'=> wp_json_encode( $result['weaknesses'] ?? [] ),
-                    'keywords'  => wp_json_encode( $result['keywords'] ?? [] ),
-                    'extra'     => wp_json_encode( $result['extra'] ?? [] ),
-                    'updated_at'=> current_time( 'mysql', true ),
-                ]
+            $wpdb->query(
+                $wpdb->prepare(
+                    "INSERT INTO {$table}
+                        (job_id, cv_id, score, strengths, weaknesses, keywords, extra, created_at, updated_at)
+                     VALUES (%d, %d, %f, %s, %s, %s, %s, %s, %s)
+                     ON DUPLICATE KEY UPDATE
+                        score = VALUES(score),
+                        strengths = VALUES(strengths),
+                        weaknesses = VALUES(weaknesses),
+                        keywords = VALUES(keywords),
+                        extra = VALUES(extra),
+                        updated_at = VALUES(updated_at)",
+                    $jobId,
+                    absint( $result['cv_id'] ?? 0 ),
+                    floatval( $result['score'] ?? 0 ),
+                    wp_json_encode( $result['strengths'] ?? [] ),
+                    wp_json_encode( $result['weaknesses'] ?? [] ),
+                    wp_json_encode( $result['keywords'] ?? [] ),
+                    wp_json_encode( $result['extra'] ?? [] ),
+                    $now,
+                    $now
+                )
             );
         }
 
