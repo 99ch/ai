@@ -110,6 +110,8 @@ _CROSS_ENCODER_RETRY_COOLDOWN_S = 300
 _cross_encoder_lock = Lock()
 _skill_embedding_model: Optional[SentenceTransformer] = None
 _skill_embedding_model_lock = Lock()
+_skill_embedding_model_last_failure: Optional[float] = None  # time.monotonic() du dernier échec de chargement
+_SKILL_EMBEDDING_RETRY_COOLDOWN_S = 300
 _pgvector_ready = False
 
 
@@ -680,13 +682,23 @@ def rerank_with_cross_encoder(
 
 def get_skill_embedding_model() -> Optional[SentenceTransformer]:
     """Charge paresseusement le modèle DÉDIÉ au crédit sémantique de
-    compétences (voir le commentaire sur Settings.skill_embedding_model) --
-    volontairement pas de cooldown de retry comme get_cross_encoder() :
-    cette composante est une amélioration secondaire (un ratage se traduit
-    juste par un repli lexical pur, pas par un score sémantique aplati),
-    donc pas la même justification empirique pour la complexité du retry.
+    compétences (voir le commentaire sur Settings.skill_embedding_model).
+
+    Cooldown de retry ajouté après un cas réel (2026-09-15, test sur des
+    CV/offres réels pendant une coupure réseau transitoire) : sans lui,
+    chaque compétence non matchée d'une même requête (et chaque requête
+    suivante) retentait un chargement HuggingFace complet -- 5 tentatives
+    avec backoff exponentiel à chaque fois -- avant de retomber sur le
+    repli lexical déjà prévu. Sur un CV long avec plusieurs compétences non
+    matchées, ça a à lui seul ajouté l'essentiel de la latence observée
+    (~180s sur une requête qui aurait dû prendre quelques secondes une fois
+    le modèle réellement indisponible). Même mécanisme que
+    get_cross_encoder() : ni AI Real-Time (get_sentence_transformer,
+    embeddings.py) ni la version précédente de cette fonction ne l'avaient
+    -- ce n'est pas un portage, c'est un ajout trouvé en testant sur des
+    données réelles.
     """
-    global _skill_embedding_model
+    global _skill_embedding_model, _skill_embedding_model_last_failure
     if not settings.skill_embedding_enabled:
         return None
     if _skill_embedding_model is not None:
@@ -694,13 +706,25 @@ def get_skill_embedding_model() -> Optional[SentenceTransformer]:
     with _skill_embedding_model_lock:
         if _skill_embedding_model is not None:
             return _skill_embedding_model
+
+        now = time.monotonic()
+        if (
+            _skill_embedding_model_last_failure is not None
+            and now - _skill_embedding_model_last_failure < _SKILL_EMBEDDING_RETRY_COOLDOWN_S
+        ):
+            return None
+
         try:
             logging.info("Loading skill-embedding model %s", settings.skill_embedding_model)
             _skill_embedding_model = SentenceTransformer(settings.skill_embedding_model)
+            _skill_embedding_model_last_failure = None
         except Exception as exc:  # noqa: BLE001
+            _skill_embedding_model_last_failure = now
             logging.warning(
-                "Modèle d'embedding de compétences indisponible (%s) — crédit sémantique désactivé, repli lexical",
+                "Modèle d'embedding de compétences indisponible (%s) — crédit sémantique désactivé, "
+                "repli lexical, nouvel essai dans %ss",
                 exc,
+                _SKILL_EMBEDDING_RETRY_COOLDOWN_S,
             )
     return _skill_embedding_model
 
