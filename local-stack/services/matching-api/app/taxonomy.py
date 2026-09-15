@@ -95,10 +95,24 @@ _ROME_ALIAS_STOPWORDS: frozenset[str] = frozenset({"son"})
 # (a4f576f/61886a9), réduite aux entrées confirmées présentes dans ce
 # fichier partagé (le reste de leur liste vient de leur propre dictionnaire
 # _SKILLS, que nous n'avons pas).
+#
+# "Grande distribution" est un ajout à NOUS, pas un portage : absente de la
+# liste d'AI Real-Time (leur commentaire dit explicitement que leur import
+# ROME 8500+ entrées n'a pas été audité en entier, celle-ci n'a simplement
+# jamais été rencontrée chez eux). Trouvée en auditant Keoni sur un
+# échantillon d'offres réelles (2026-09-15) : 4 offres sur 5 testées
+# partagent le même paragraphe passe-partout d'ESN ("nous accompagnons nos
+# clients de l'industrie, banque & assurance, grande distribution &
+# e-commerce...") en tête ou pied de texte — ce n'est jamais une exigence
+# du poste, juste la liste des secteurs clients de l'agence, et avec
+# seulement 3-4 compétences détectées par offre en moyenne, ce faux positif
+# à lui seul pesait ~25 points de couverture sur un candidat par ailleurs
+# bien aligné (cas réel audité : 45.5 au lieu des ~65+ attendus).
 _GENERIC_SKILL_CANONICALS: frozenset[str] = frozenset({
     "Contrôle qualité",
     "Ecoute active",
     "Gestion du temps",
+    "Grande distribution",
 })
 
 

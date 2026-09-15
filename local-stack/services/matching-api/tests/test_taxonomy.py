@@ -44,6 +44,22 @@ def test_generic_professional_vocabulary_is_excluded():
     assert "Gestion du temps" not in result
 
 
+# ── "Grande distribution" exclu (trouvé chez Keoni, pas un portage AI
+#    Real-Time -- voir le commentaire sur _GENERIC_SKILL_CANONICALS) :
+#    boilerplate ESN "secteurs clients", pas une exigence de poste, présent
+#    dans 4/5 offres réelles testées et pesant ~25 points de couverture sur
+#    un candidat par ailleurs bien aligné (Stéphane Burgevin, 45.5 -> mesure
+#    attendue AI Real-Time ~65+ sur le même profil) ──────────────────────
+
+
+def test_agency_client_sector_boilerplate_is_excluded():
+    result = find_skills(
+        "nous accompagnons nos clients de l'industrie, banque & assurance, "
+        "grande distribution & e-commerce, et médias & communication"
+    )
+    assert "Grande distribution" not in result
+
+
 # ── Auto-indexation du canonique retirée (AI Real-Time 2d670be) : vérifie que
 #    le matching de base marche toujours sans l'alias implicite ────────────
 
