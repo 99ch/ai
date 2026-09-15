@@ -43,6 +43,7 @@ Composantes AI Real-Time désormais toutes portées :
 from __future__ import annotations
 
 import re
+import threading
 import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
@@ -224,6 +225,48 @@ def weights_for_profile(
 # paire. Keoni n'a pas encore son propre jeu de validation équivalent, donc
 # on part de leur valeur mesurée plutôt que d'un chiffre choisi au hasard.
 SKILL_CAP_FLOOR = 0.30
+
+# Réglage live (sans redéploiement) du seuil/plafond du crédit sémantique de
+# compétences (utilisé par skills_component ET priority_keyword_component
+# via semantic_skill_credit_fn, côté main.py) -- portage de
+# _skill_embedding_tuning_override côté AI Real-Time. État en mémoire
+# uniquement (réinitialisé au prochain redémarrage), volontairement pas
+# auto-appliqué : un changement de paramètre de scoring doit rester une
+# action admin délibérée et visible, jamais automatique. Vit ici (pas dans
+# main.py) car c'est un simple état threadsafe sans dépendance ML -- garde
+# scoring.py testable sans installer sentence-transformers.
+_skill_embedding_tuning_override: Optional[dict[str, float]] = None
+_skill_embedding_tuning_lock = threading.Lock()
+
+
+def set_skill_embedding_tuning(threshold: Optional[float], max_credit: Optional[float]) -> None:
+    """Passer threshold ET max_credit à None réinitialise l'override et
+    revient aux valeurs par défaut (settings)."""
+    global _skill_embedding_tuning_override
+    with _skill_embedding_tuning_lock:
+        if threshold is None and max_credit is None:
+            _skill_embedding_tuning_override = None
+            return
+        current = dict(_skill_embedding_tuning_override or {})
+        if threshold is not None:
+            current["threshold"] = threshold
+        if max_credit is not None:
+            current["max_credit"] = max_credit
+        _skill_embedding_tuning_override = current
+
+
+def get_skill_embedding_tuning(
+    default_threshold: float, default_max_credit: float
+) -> Tuple[float, float, bool]:
+    """Retourne (threshold, max_credit, is_overridden) -- l'override actif
+    s'il existe, sinon les valeurs par défaut passées par l'appelant (lues
+    depuis Settings côté main.py)."""
+    with _skill_embedding_tuning_lock:
+        override = dict(_skill_embedding_tuning_override) if _skill_embedding_tuning_override else {}
+    threshold = override.get("threshold", default_threshold)
+    max_credit = override.get("max_credit", default_max_credit)
+    return threshold, max_credit, bool(override)
+
 
 # Zones d'expérience : portées à l'identique depuis AI Real-Time matcher.py
 # (calibration du 2026-09-11 sur cas de production réel) — voir le

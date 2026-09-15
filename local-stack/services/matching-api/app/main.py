@@ -37,8 +37,10 @@ from app.scoring import (
     PreparedJob,
     ScoreResult,
     compute_final_score,
+    get_skill_embedding_tuning,
     normalize_whitespace,
     overlap_text,
+    set_skill_embedding_tuning,
     split_priority_keyword_terms,
     tokenize,
     weights_for_profile,
@@ -212,6 +214,18 @@ class ScoreResponse(BaseModel):
     count: int
     duration_ms: int
     results: List[ScoreItem]
+
+
+class SkillEmbeddingTuningRead(BaseModel):
+    threshold: float
+    max_credit: float
+    is_overridden: bool
+
+
+class SkillEmbeddingTuningUpdate(BaseModel):
+    threshold: Optional[float] = None
+    max_credit: Optional[float] = None
+    reset: bool = False
 
 
 def require_api_key(x_api_key: str = Header(default="")) -> None:
@@ -752,8 +766,9 @@ def semantic_skill_credit(unmatched: frozenset[str], cv_skills: frozenset[str]) 
     if not similarities:
         return 0.0
 
-    threshold = settings.skill_embedding_threshold
-    max_credit = settings.skill_embedding_max_credit
+    threshold, max_credit, _overridden = get_skill_embedding_tuning(
+        settings.skill_embedding_threshold, settings.skill_embedding_max_credit
+    )
     total = 0.0
     for sim in similarities.values():
         if sim >= threshold:
@@ -991,6 +1006,53 @@ def healthcheck() -> dict:
         "skill_embedding_loaded": _skill_embedding_model is not None,
         "time": time.time(),
     }
+
+
+@app.get("/admin/skill-embedding-tuning", response_model=SkillEmbeddingTuningRead)
+def get_skill_embedding_tuning_endpoint(_: None = Depends(require_api_key)) -> SkillEmbeddingTuningRead:
+    """Seuil/plafond actuellement effectifs pour le crédit sémantique de
+    compétences (skills ET mots-clés prioritaires, voir
+    semantic_skill_credit) -- soit la valeur par défaut déployée
+    (MATCHING_SKILL_EMBEDDING_THRESHOLD/_MAX_CREDIT), soit un override
+    admin en mémoire, selon ce qui est actif."""
+    threshold, max_credit, overridden = get_skill_embedding_tuning(
+        settings.skill_embedding_threshold, settings.skill_embedding_max_credit
+    )
+    return SkillEmbeddingTuningRead(threshold=threshold, max_credit=max_credit, is_overridden=overridden)
+
+
+@app.patch("/admin/skill-embedding-tuning", response_model=SkillEmbeddingTuningRead)
+def update_skill_embedding_tuning_endpoint(
+    payload: SkillEmbeddingTuningUpdate, _: None = Depends(require_api_key)
+) -> SkillEmbeddingTuningRead:
+    """Ajuste le seuil/plafond du crédit sémantique à chaud, SANS
+    redéploiement ni redémarrage -- effectif dès le prochain score calculé.
+    En mémoire uniquement (comme les autres overrides de ce module) :
+    revient à la valeur par défaut au prochain redémarrage/déploiement --
+    pour de l'expérimentation live, pas un changement permanent. Une fois
+    une valeur validée, il faut la graver dans
+    MATCHING_SKILL_EMBEDDING_THRESHOLD/_MAX_CREDIT pour qu'elle survive à
+    un déploiement.
+
+    `reset=true` efface l'override et revient à la valeur par défaut.
+    Protégée par la même clé API que le reste de l'API (pas de notion de
+    rôle admin séparé côté Keoni, contrairement à AI Real-Time) : quiconque
+    peut appeler /score peut aussi ajuster ce réglage.
+    """
+    if payload.threshold is not None and not (0.0 < payload.threshold <= 1.0):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="threshold doit être dans ]0, 1]")
+    if payload.max_credit is not None and not (0.0 < payload.max_credit <= 1.0):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="max_credit doit être dans ]0, 1]")
+
+    if payload.reset:
+        set_skill_embedding_tuning(None, None)
+    else:
+        set_skill_embedding_tuning(payload.threshold, payload.max_credit)
+
+    threshold, max_credit, overridden = get_skill_embedding_tuning(
+        settings.skill_embedding_threshold, settings.skill_embedding_max_credit
+    )
+    return SkillEmbeddingTuningRead(threshold=threshold, max_credit=max_credit, is_overridden=overridden)
 
 
 @app.post("/score", response_model=ScoreResponse)

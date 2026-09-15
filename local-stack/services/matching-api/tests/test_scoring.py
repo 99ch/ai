@@ -1,6 +1,8 @@
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.scoring import (  # noqa: E402
@@ -15,6 +17,7 @@ from app.scoring import (  # noqa: E402
     enrich_cv_skills,
     experience_component,
     experience_zone_score,
+    get_skill_embedding_tuning,
     infer_seniority_years,
     jobtype_component,
     location_component,
@@ -23,6 +26,7 @@ from app.scoring import (  # noqa: E402
     qualification_component,
     resolve_priority_keywords,
     salary_component,
+    set_skill_embedding_tuning,
     skills_component,
     split_priority_keyword_terms,
     weights_for_profile,
@@ -433,3 +437,40 @@ def test_custom_weights_are_respected():
     custom["skills"] = 0.0
     result = compute_final_score(job, cv, similarity=0.5, rerank_score=None, weights=custom)
     assert result.score == 50.0
+
+
+# ── réglage live du crédit sémantique de compétences ──────────────────────
+
+
+@pytest.fixture(autouse=True)
+def _reset_skill_embedding_tuning_override():
+    set_skill_embedding_tuning(None, None)
+    yield
+    set_skill_embedding_tuning(None, None)
+
+
+def test_get_skill_embedding_tuning_defaults_when_no_override():
+    threshold, max_credit, overridden = get_skill_embedding_tuning(0.6, 0.8)
+    assert (threshold, max_credit, overridden) == (0.6, 0.8, False)
+
+
+def test_set_skill_embedding_tuning_overrides_only_the_given_field():
+    set_skill_embedding_tuning(threshold=0.45, max_credit=None)
+    threshold, max_credit, overridden = get_skill_embedding_tuning(0.6, 0.8)
+    assert threshold == 0.45
+    assert max_credit == 0.8  # non fourni -> valeur par défaut inchangée
+    assert overridden is True
+
+
+def test_set_skill_embedding_tuning_both_none_clears_override():
+    set_skill_embedding_tuning(threshold=0.3, max_credit=0.5)
+    set_skill_embedding_tuning(None, None)
+    threshold, max_credit, overridden = get_skill_embedding_tuning(0.6, 0.8)
+    assert (threshold, max_credit, overridden) == (0.6, 0.8, False)
+
+
+def test_set_skill_embedding_tuning_accumulates_across_calls():
+    set_skill_embedding_tuning(threshold=0.4, max_credit=None)
+    set_skill_embedding_tuning(threshold=None, max_credit=0.9)
+    threshold, max_credit, overridden = get_skill_embedding_tuning(0.6, 0.8)
+    assert (threshold, max_credit, overridden) == (0.4, 0.9, True)
