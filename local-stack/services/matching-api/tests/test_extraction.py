@@ -11,11 +11,27 @@ Les cas _is_plausible_table/_detect_column_gutter ci-dessous portent deux
 bugs réels trouvés par AI Real-Time sur un corpus de validation de 13 715
 CV (2026-09-14, fa63df2 et 38d44a8) sur ces mêmes fonctions, portées à
 l'identique côté Keoni (point 9).
+
+Le cas test_docx_captures_text_hidden_in_a_textbox porte un bug réel
+trouvé par AI Real-Time sur 888 vrais CV DOCX de production (2026-09-18,
+50e976a) : le texte placé dans une zone de texte/forme (<w:txbxContent>)
+était entièrement invisible à l'extraction -- 165 fichiers (18,6%) avaient
+plus de 500 caractères ainsi cachés, certains jusqu'à l'intégralité du CV.
 """
 
 from __future__ import annotations
 
-from app.extraction import _collapse_letter_spacing, _detect_column_gutter, _is_plausible_table, clean_text
+import docx
+from docx.oxml import parse_xml
+from docx.oxml.ns import nsdecls
+
+from app.extraction import (
+    _collapse_letter_spacing,
+    _detect_column_gutter,
+    _is_plausible_table,
+    clean_text,
+    extract_text_from_docx,
+)
 
 
 def test_letter_spaced_heading_is_collapsed():
@@ -103,3 +119,36 @@ def test_narrow_real_gutter_is_not_rejected_as_pixel_noise():
         f"le vrai gouffre (113.3-134.0) ne doit pas être rejeté au profit "
         f"du milieu de page fixe (297.5), obtenu mid={mid}"
     )
+
+
+def test_docx_captures_text_hidden_in_a_textbox(tmp_path):
+    doc = docx.Document()
+    doc.add_paragraph("En-tête visible normalement.")
+
+    # <w:txbxContent> minimal imbriqué dans un run, comme le font les vrais
+    # templates de CV pour placer toute une barre latérale/section dans une
+    # forme "zone de texte". python-docx n'a pas d'API haut niveau pour les
+    # zones de texte, donc ceci est construit directement en XML, de la même
+    # façon que python-docx lui-même l'émettrait.
+    textbox_xml = (
+        f'<w:r {nsdecls("w")} xmlns:v="urn:schemas-microsoft-com:vml">'
+        '<w:pict><v:shape>'
+        '<v:textbox><w:txbxContent>'
+        '<w:p><w:r><w:t>Compétences: Python, Django, PostgreSQL</w:t></w:r></w:p>'
+        '<w:p><w:r><w:t>Expérience: 5 ans en développement backend</w:t></w:r></w:p>'
+        '</w:txbxContent></v:textbox>'
+        '</v:shape></w:pict></w:r>'
+    )
+    p = doc.add_paragraph()
+    p._p.append(parse_xml(textbox_xml))
+    doc.add_paragraph("Pied de page visible normalement.")
+
+    path = tmp_path / "cv_with_textbox.docx"
+    doc.save(path)
+
+    result = extract_text_from_docx(path)
+
+    assert "En-tête visible normalement." in result
+    assert "Pied de page visible normalement." in result
+    assert "Compétences: Python, Django, PostgreSQL" in result
+    assert "Expérience: 5 ans en développement backend" in result

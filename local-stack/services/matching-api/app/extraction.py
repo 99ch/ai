@@ -521,6 +521,30 @@ def _iter_docx_block_items(doc):
             yield Table(child, doc)
 
 
+def _docx_textbox_lines(paragraph_element) -> list[str]:
+    """Retourne le texte trouvé dans tout <w:txbxContent> (zone de texte)
+    imbriqué dans ce paragraphe.
+
+    Trouvé chez AI Real-Time (50e976a, audit sur 888 vrais CV DOCX réels) :
+    18,6% des DOCX de leur corpus construisent tout leur mise en page avec
+    des zones de texte/formes pour des raisons de design -- Paragraph.text
+    de python-docx ne parcourt que les <w:r> directs du paragraphe, donc le
+    texte niché dans la structure propre <w:txbxContent><w:p> d'une zone de
+    texte est silencieusement invisible, jusqu'à perdre le corps entier du
+    CV (un fichier de leur corpus perdait 39 594 caractères ainsi). Pas un
+    problème d'OCR : c'est du texte XML réel, juste jamais atteint par le
+    parcours normal paragraphe/tableau.
+    """
+    lines: list[str] = []
+    for txbx in paragraph_element.iter(qn("w:txbxContent")):
+        for inner_p in txbx.iter(qn("w:p")):
+            texts = [t.text for t in inner_p.iter(qn("w:t")) if t.text]
+            line = "".join(texts).strip()
+            if line:
+                lines.append(line)
+    return lines
+
+
 def _docx_header_footer_lines(doc) -> tuple[list[str], list[str]]:
     """Retourne (lignes_entête, lignes_pied_de_page) sur toutes les sections.
 
@@ -553,12 +577,16 @@ def extract_text_from_docx(path: Path) -> str:
                 t = block.text.strip()
                 if t:
                     parts.append(t)
+                parts.extend(_docx_textbox_lines(block._p))
             elif isinstance(block, Table):
                 for row in block.rows:
                     # joint les cellules d'une même ligne par tabulation pour garder les colonnes lisibles
                     cells = [c.text.strip() for c in row.cells if c.text.strip()]
                     if cells:
                         parts.append("\t".join(cells))
+                    for cell in row.cells:
+                        for cell_p in cell.paragraphs:
+                            parts.extend(_docx_textbox_lines(cell_p._p))
 
         parts.extend(footer_lines)
 
