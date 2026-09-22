@@ -70,7 +70,8 @@ class Keoni_Bridge_Shortcode {
         $qualified_count = (int) ( $kpis['qualified_count'] ?? 0 );
         $candidates_count = (int) ( $kpis['candidates_count'] ?? 0 );
         $qualified_label = number_format_i18n( $qualified_count ) . ' / ' . number_format_i18n( $candidates_count );
-        $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id );
+        $extract_cv_nonce = wp_create_nonce( 'keoni_bridge_extract_cv' );
+        $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce );
         $nonce       = wp_create_nonce( 'keoni_matching' );
         $reset_nonce = wp_create_nonce( 'keoni_bridge_reset_matching' );
 
@@ -151,7 +152,7 @@ class Keoni_Bridge_Shortcode {
         ] );
     }
 
-    public static function render_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [] ): string {
+    public static function render_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [], int $job_id = 0, string $extract_cv_nonce = '' ): string {
         $default_avatar = defined( 'JSJOBS_PLUGIN_URL' ) ? JSJOBS_PLUGIN_URL . 'includes/images/users.png' : '';
         $date_format    = get_option( 'date_format', 'Y-m-d' );
 
@@ -306,15 +307,26 @@ class Keoni_Bridge_Shortcode {
                     </details>
 
                     <div class="keoni-matching__resume-actions keoni-matching__actions">
-                        <?php if ( $profile_url ) : ?>
-                            <a class="keoni-matching__btn keoni-matching__btn--primary keoni-matching__btn--full" href="<?php echo esc_url( $profile_url ); ?>" target="_blank" rel="noopener">
+                        <?php if ( $resume_url ) : ?>
+                            <a class="keoni-matching__btn keoni-matching__btn--primary keoni-matching__btn--full" href="<?php echo esc_url( $resume_url ); ?>" target="_blank" rel="noopener">
                                 <?php esc_html_e( 'Voir le CV', 'keoni-bridge' ); ?>
                             </a>
                         <?php endif; ?>
+                        <button type="button"
+                                class="keoni-matching__btn keoni-matching__btn--ghost keoni-matching__btn--full"
+                                data-keoni-extract-cv
+                                data-cv-id="<?php echo esc_attr( $cv_id ); ?>"
+                                data-job-id="<?php echo esc_attr( $job_id ); ?>"
+                                data-nonce="<?php echo esc_attr( $extract_cv_nonce ); ?>"
+                                data-default-text="<?php esc_attr_e( 'Voir le CV structuré', 'keoni-bridge' ); ?>"
+                                data-loading-text="<?php esc_attr_e( 'Analyse...', 'keoni-bridge' ); ?>">
+                            <?php esc_html_e( 'Voir le CV structuré', 'keoni-bridge' ); ?>
+                        </button>
+                        <div class="keoni-matching__structured" hidden></div>
                         <div class="keoni-matching__actions-secondary">
-                            <?php if ( $resume_url ) : ?>
-                                <a class="keoni-matching__btn keoni-matching__btn--ghost" href="<?php echo esc_url( $resume_url ); ?>" target="_blank" rel="noopener">
-                                    <?php esc_html_e( 'Télécharger le CV', 'keoni-bridge' ); ?>
+                            <?php if ( $profile_url ) : ?>
+                                <a class="keoni-matching__btn keoni-matching__btn--ghost" href="<?php echo esc_url( $profile_url ); ?>" target="_blank" rel="noopener">
+                                    <?php esc_html_e( 'Voir le profil candidat', 'keoni-bridge' ); ?>
                                 </a>
                             <?php endif; ?>
                             <?php if ( $email_raw ) : ?>

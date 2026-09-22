@@ -369,6 +369,27 @@
 	font-size: 13px;
 }
 
+.keoni-matching__structured {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	background: #f8fafc;
+	border: 1px solid #e2e8f0;
+	border-radius: 10px;
+	padding: 10px 12px;
+	margin: 0 0 8px;
+}
+
+.keoni-matching__structured-text {
+	margin: 0;
+	color: #334155;
+	font-size: 13px;
+	line-height: 1.5;
+	max-height: 220px;
+	overflow-y: auto;
+	white-space: pre-wrap;
+}
+
 .keoni-matching__actions {
 	display: flex;
 	flex-wrap: wrap;

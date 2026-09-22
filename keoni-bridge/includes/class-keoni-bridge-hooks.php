@@ -19,6 +19,8 @@ class Keoni_Bridge_Hooks {
         add_action( 'wp_ajax_keoni_bridge_run_matching', [ $this, 'ajax_run_matching' ] );
         add_action( 'wp_ajax_keoni_bridge_matching_status', [ $this, 'ajax_matching_status' ] );
         add_action( 'wp_ajax_keoni_bridge_reset_matching', [ $this, 'ajax_reset_matching' ] );
+        add_action( 'wp_ajax_keoni_bridge_extract_cv', [ $this, 'ajax_extract_cv' ] );
+        add_action( 'wp_ajax_keoni_bridge_extract_job', [ $this, 'ajax_extract_job' ] );
 
         if ( ! wp_next_scheduled( 'keoni_bridge_scan_jobs' ) ) {
             wp_schedule_event( time() + 60, 'five_minutes', 'keoni_bridge_scan_jobs' );
@@ -149,6 +151,132 @@ class Keoni_Bridge_Hooks {
             'message' => __( 'Résultats IA réinitialisés.', 'keoni-bridge' ),
             'deleted' => $deleted,
         ] );
+    }
+
+    public function ajax_extract_cv(): void {
+        check_ajax_referer( 'keoni_bridge_extract_cv', 'nonce' );
+
+        $cv_id  = isset( $_POST['cv_id'] ) ? absint( wp_unslash( $_POST['cv_id'] ) ) : 0;
+        $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
+
+        if ( $cv_id <= 0 || $job_id <= 0 ) {
+            wp_send_json_error( [ 'message' => __( 'Requête invalide.', 'keoni-bridge' ) ], 400 );
+        }
+
+        if ( ! $this->user_can_manage_job_matching( $job_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
+        }
+
+        $cv = Keoni_Bridge_Repository::get_cv( $cv_id );
+
+        if ( empty( $cv ) ) {
+            wp_send_json_error( [ 'message' => __( 'CV introuvable.', 'keoni-bridge' ) ], 404 );
+        }
+
+        $payload = [
+            'id'                => (int) $cv['id'],
+            'candidate_email'   => $cv['candidate_email'] ?? '',
+            'application_title' => $cv['application_title'] ?? '',
+            'text_content'      => $cv['text_content'] ?? '',
+            'metadata'          => $cv['metadata'] ?? [],
+            'file_path'         => $cv['file_path'] ?? '',
+        ];
+
+        $result = $this->call_extract_webhook( 'keoni/extract-cv', $payload );
+
+        if ( null === $result ) {
+            wp_send_json_error( [ 'message' => __( 'Impossible de contacter le service IA.', 'keoni-bridge' ) ], 500 );
+        }
+
+        wp_send_json_success( $result );
+    }
+
+    public function ajax_extract_job(): void {
+        check_ajax_referer( 'keoni_bridge_extract_job', 'nonce' );
+
+        $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
+
+        if ( $job_id <= 0 ) {
+            wp_send_json_error( [ 'message' => __( 'Offre invalide.', 'keoni-bridge' ) ], 400 );
+        }
+
+        if ( ! $this->user_can_manage_job_matching( $job_id ) ) {
+            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
+        }
+
+        $rest     = new Keoni_Bridge_Rest();
+        $request  = new WP_REST_Request( 'GET', '/keoni/v1/job/' . $job_id );
+        $request->set_param( 'id', $job_id );
+        $response = $rest->get_job( $request );
+        $job      = $response->get_data();
+
+        if ( empty( $job ) || 404 === $response->get_status() ) {
+            wp_send_json_error( [ 'message' => __( 'Offre introuvable.', 'keoni-bridge' ) ], 404 );
+        }
+
+        $payload = [
+            'id'          => $job['id'],
+            'title'       => $job['title'] ?? '',
+            'description' => $job['content'] ?? '',
+            'content'     => $job['content'] ?? '',
+            'excerpt'     => $job['excerpt'] ?? '',
+            'keywords'    => $job['keywords'] ?? '',
+            'location'    => $job['location'] ?? '',
+            'meta'        => $job['meta'] ?? [],
+        ];
+
+        $result = $this->call_extract_webhook( 'keoni/extract-job', $payload );
+
+        if ( null === $result ) {
+            wp_send_json_error( [ 'message' => __( 'Impossible de contacter le service IA.', 'keoni-bridge' ) ], 500 );
+        }
+
+        wp_send_json_success( $result );
+    }
+
+    private function call_extract_webhook( string $path, array $payload ): ?array {
+        $settings = Keoni_Bridge::get_settings();
+        $base     = $settings['webhook_url'] ?? '';
+        $secret   = $settings['webhook_secret'] ?? '';
+
+        if ( empty( $base ) || empty( $secret ) ) {
+            return null;
+        }
+
+        $pos = strpos( $base, '/webhook/' );
+
+        if ( false === $pos ) {
+            return null;
+        }
+
+        $url = substr( $base, 0, $pos + strlen( '/webhook/' ) ) . $path;
+
+        $response = wp_remote_post( $url, [
+            'timeout' => 20,
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'X-API-Key'    => sanitize_text_field( $secret ),
+            ],
+            'body'    => wp_json_encode( $payload ),
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            error_log( sprintf( '[Keoni Bridge] Extract webhook error (%s): %s', $path, $response->get_error_message() ) );
+            return null;
+        }
+
+        $status_code = (int) wp_remote_retrieve_response_code( $response );
+        $body        = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+        if ( $status_code < 200 || $status_code >= 300 || ! is_array( $body ) ) {
+            error_log( sprintf( '[Keoni Bridge] Extract webhook HTTP %d (%s).', $status_code, $path ) );
+            return null;
+        }
+
+        return [
+            'text'   => (string) ( $body['text'] ?? '' ),
+            'skills' => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $body['skills'] ?? [] ) ) ) ),
+        ];
     }
 
     public function scan_js_jobs(): void {
