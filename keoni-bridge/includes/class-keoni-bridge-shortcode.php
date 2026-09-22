@@ -327,9 +327,9 @@ class Keoni_Bridge_Shortcode {
                                 data-cv-id="<?php echo esc_attr( $cv_id ); ?>"
                                 data-job-id="<?php echo esc_attr( $job_id ); ?>"
                                 data-nonce="<?php echo esc_attr( $extract_cv_nonce ); ?>"
-                                data-default-text="<?php esc_attr_e( 'Voir le CV structuré', 'keoni-bridge' ); ?>"
+                                data-default-text="<?php esc_attr_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>"
                                 data-loading-text="<?php esc_attr_e( 'Analyse...', 'keoni-bridge' ); ?>">
-                            <?php esc_html_e( 'Voir le CV structuré', 'keoni-bridge' ); ?>
+                            <?php esc_html_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>
                         </button>
                         <div class="keoni-matching__structured" hidden></div>
                         <div class="keoni-matching__actions-secondary">
