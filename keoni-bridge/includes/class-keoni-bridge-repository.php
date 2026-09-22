@@ -283,6 +283,25 @@ class Keoni_Bridge_Repository {
         return 'keoni_bridge_workflow_kpi_' . $job_id;
     }
 
+    private static function scoring_profile_option_key( int $job_id ): string {
+        return 'keoni_bridge_scoring_profile_' . $job_id;
+    }
+
+    public static function get_job_scoring_profile( int $job_id ): string {
+        $value = get_option( self::scoring_profile_option_key( $job_id ), '' );
+
+        return is_string( $value ) ? $value : '';
+    }
+
+    public static function save_job_scoring_profile( int $job_id, string $profile ): void {
+        if ( '' === $profile ) {
+            delete_option( self::scoring_profile_option_key( $job_id ) );
+            return;
+        }
+
+        update_option( self::scoring_profile_option_key( $job_id ), $profile );
+    }
+
     public static function delete_matching_results( int $job_id ): int {
         global $wpdb;
 
