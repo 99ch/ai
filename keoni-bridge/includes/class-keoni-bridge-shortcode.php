@@ -166,13 +166,22 @@ class Keoni_Bridge_Shortcode {
             $keywords    = (array) ( $item['keywords'] ?? [] );
             $strengths   = (array) ( $item['strengths'] ?? [] );
             $weaknesses  = (array) ( $item['weaknesses'] ?? [] );
-            $resume_url  = self::build_cv_url( $cv );
             $email_raw   = $cv['candidate_email'] ?? '';
             $resume_key  = strtolower( $email_raw );
             $resume      = $resume_key && isset( $resume_map[ $resume_key ] ) ? $resume_map[ $resume_key ] : null;
 
             if ( ! $resume && $cv_id && isset( $resume_map_by_id[ $cv_id ] ) ) {
                 $resume = $resume_map_by_id[ $cv_id ];
+            }
+
+            // Le fichier CV réel (uploadé par le candidat) vit dans js-jobs,
+            // pas dans wp_cv_database (jamais peuplée par le pipeline n8n
+            // actif) : c'est resume_file_url, construit depuis
+            // wp_js_job_resumefiles, qui pointe vers le vrai document.
+            $resume_url = $resume['resume_file_url'] ?? '';
+
+            if ( '' === $email_raw ) {
+                $email_raw = $resume['email'] ?? '';
             }
 
             $name = $resume
@@ -432,23 +441,4 @@ class Keoni_Bridge_Shortcode {
         return sprintf( __( '%d min %d s', 'keoni-bridge' ), $minutes, $seconds );
     }
 
-    private static function build_cv_url( array $cv ): string {
-        $path = $cv['file_path'] ?? '';
-
-        if ( empty( $path ) ) {
-            return '';
-        }
-
-        if ( str_starts_with( $path, 'http://' ) || str_starts_with( $path, 'https://' ) ) {
-            return esc_url_raw( $path );
-        }
-
-        if ( str_starts_with( $path, '/' ) ) {
-            return esc_url_raw( home_url( $path ) );
-        }
-
-        $upload_dir = wp_get_upload_dir();
-
-        return esc_url_raw( trailingslashit( $upload_dir['baseurl'] ) . ltrim( $path, '/' ) );
-    }
 }

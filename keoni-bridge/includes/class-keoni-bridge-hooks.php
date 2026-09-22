@@ -176,19 +176,22 @@ class Keoni_Bridge_Hooks {
             wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
         }
 
-        $cv = Keoni_Bridge_Repository::get_cv( $cv_id );
+        // "cv_id" est en réalité l'id de la fiche candidat côté js-jobs
+        // (wp_js_job_resume.id) -- wp_cv_database n'est jamais peuplée par le
+        // pipeline n8n actif, le vrai fichier CV vient de resume_file_url
+        // (construit depuis wp_js_job_resumefiles). matching-api télécharge
+        // et extrait ce fichier lui-même (voir assemble_cv_text/fetch_remote_file).
+        $resume = Keoni_Bridge_Repository::get_resumes_by_ids( [ $cv_id ] )[ $cv_id ] ?? null;
 
-        if ( empty( $cv ) ) {
+        if ( empty( $resume ) || empty( $resume['resume_file_url'] ) ) {
             wp_send_json_error( [ 'message' => __( 'CV introuvable.', 'keoni-bridge' ) ], 404 );
         }
 
         $payload = [
-            'id'                => (int) $cv['id'],
-            'candidate_email'   => $cv['candidate_email'] ?? '',
-            'application_title' => $cv['application_title'] ?? '',
-            'text_content'      => $cv['text_content'] ?? '',
-            'metadata'          => $cv['metadata'] ?? [],
-            'file_path'         => $cv['file_path'] ?? '',
+            'id'                => $cv_id,
+            'candidate_email'   => $resume['email'] ?? '',
+            'application_title' => $resume['application_title'] ?? '',
+            'file_path'         => $resume['resume_file_url'],
         ];
 
         $result = $this->call_extract_webhook( 'keoni/extract-cv', $payload );

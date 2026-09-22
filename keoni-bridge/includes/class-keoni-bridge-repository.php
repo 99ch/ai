@@ -338,7 +338,8 @@ class Keoni_Bridge_Repository {
                 "SELECT resume.id, CONCAT(resume.alias,'-',resume.id) AS aliasid, resume.first_name, resume.last_name,
                     resume.application_title, resume.email_address, category.cat_title,
                     exp.title AS total_experience, resume.created, jobtype.title AS jobtypetitle,
-                    resume.photo, salary_from.rangestart, salary_to.rangeend, rangetype.title AS rangetype,
+                    resume.photo, resumefile.filename AS resume_filename,
+                    salary_from.rangestart, salary_to.rangeend, rangetype.title AS rangetype,
                           currency.symbol, city.cityName AS cityname, state.name AS statename,
                           country.name AS countryname
              FROM {$resume_table} AS resume
@@ -357,6 +358,13 @@ class Keoni_Bridge_Repository {
              LEFT JOIN {$state_tbl} AS state ON state.id = city.stateid
              LEFT JOIN {$country_tbl} AS country ON country.id = city.countryid
              LEFT JOIN {$exp_tbl} AS exp ON exp.id = resume.experienceid
+             LEFT JOIN (
+                 SELECT f.resumeid, f.filename
+                 FROM {$wpdb->prefix}js_job_resumefiles AS f
+                 INNER JOIN (
+                     SELECT resumeid, MAX(id) AS max_id FROM {$wpdb->prefix}js_job_resumefiles GROUP BY resumeid
+                 ) AS latest ON latest.resumeid = f.resumeid AND latest.max_id = f.id
+             ) AS resumefile ON resumefile.resumeid = resume.id
              WHERE resume.email_address IN ({$placeholders})
              GROUP BY resume.id",
             ...$emails
@@ -394,6 +402,12 @@ class Keoni_Bridge_Repository {
                 $photo_url = trailingslashit( $uploads['baseurl'] ) . $data_directory . '/data/jobseeker/resume_' . $row['id'] . '/photo/' . $row['photo'];
             }
 
+            $resume_file_url = '';
+
+            if ( ! empty( $row['resume_filename'] ) && ! empty( $uploads['baseurl'] ) && ! empty( $data_directory ) ) {
+                $resume_file_url = trailingslashit( $uploads['baseurl'] ) . $data_directory . '/data/jobseeker/resume_' . $row['id'] . '/resume/' . $row['resume_filename'];
+            }
+
             $view_url = '';
 
             if ( class_exists( 'jsjobs' ) ) {
@@ -424,6 +438,7 @@ class Keoni_Bridge_Repository {
                 'salary'            => $salary,
                 'location'          => $location,
                 'photo_url'         => $photo_url,
+                'resume_file_url'   => $resume_file_url,
                 'view_url'          => $view_url,
                 'created_at'        => $row['created'],
             ];
@@ -457,7 +472,8 @@ class Keoni_Bridge_Repository {
             "SELECT resume.id, CONCAT(resume.alias,'-',resume.id) AS aliasid, resume.first_name, resume.last_name,
                     resume.application_title, resume.email_address, category.cat_title,
                     exp.title AS total_experience, resume.created, jobtype.title AS jobtypetitle,
-                    resume.photo, salary_from.rangestart, salary_to.rangeend, rangetype.title AS rangetype,
+                    resume.photo, resumefile.filename AS resume_filename,
+                    salary_from.rangestart, salary_to.rangeend, rangetype.title AS rangetype,
                           currency.symbol, city.cityName AS cityname, state.name AS statename,
                           country.name AS countryname
              FROM {$resume_table} AS resume
@@ -476,6 +492,13 @@ class Keoni_Bridge_Repository {
              LEFT JOIN {$state_tbl} AS state ON state.id = city.stateid
              LEFT JOIN {$country_tbl} AS country ON country.id = city.countryid
              LEFT JOIN {$exp_tbl} AS exp ON exp.id = resume.experienceid
+             LEFT JOIN (
+                 SELECT f.resumeid, f.filename
+                 FROM {$wpdb->prefix}js_job_resumefiles AS f
+                 INNER JOIN (
+                     SELECT resumeid, MAX(id) AS max_id FROM {$wpdb->prefix}js_job_resumefiles GROUP BY resumeid
+                 ) AS latest ON latest.resumeid = f.resumeid AND latest.max_id = f.id
+             ) AS resumefile ON resumefile.resumeid = resume.id
              WHERE resume.id IN ({$placeholders})
              GROUP BY resume.id",
             ...$ids
@@ -513,6 +536,12 @@ class Keoni_Bridge_Repository {
                 $photo_url = trailingslashit( $uploads['baseurl'] ) . $data_directory . '/data/jobseeker/resume_' . $row['id'] . '/photo/' . $row['photo'];
             }
 
+            $resume_file_url = '';
+
+            if ( ! empty( $row['resume_filename'] ) && ! empty( $uploads['baseurl'] ) && ! empty( $data_directory ) ) {
+                $resume_file_url = trailingslashit( $uploads['baseurl'] ) . $data_directory . '/data/jobseeker/resume_' . $row['id'] . '/resume/' . $row['resume_filename'];
+            }
+
             $view_url = '';
 
             if ( class_exists( 'jsjobs' ) ) {
@@ -537,6 +566,7 @@ class Keoni_Bridge_Repository {
                 'salary'            => $salary,
                 'location'          => $location,
                 'photo_url'         => $photo_url,
+                'resume_file_url'   => $resume_file_url,
                 'view_url'          => $view_url,
                 'created_at'        => $row['created'],
             ];
