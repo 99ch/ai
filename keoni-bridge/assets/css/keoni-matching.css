@@ -204,6 +204,13 @@
 	color: #b91c1c;
 }
 
+/* Barres du "Détail des scores" (modale Analyser) : un remplissage plein
+   (pas le fond pâle utilisé pour la puce de score) -- sinon quasi
+   invisible sur le fond gris clair de la piste. */
+.keoni-matching__score-breakdown-bar span.score-high { background: #22c55e; }
+.keoni-matching__score-breakdown-bar span.score-medium { background: #f59e0b; }
+.keoni-matching__score-breakdown-bar span.score-low { background: #ef4444; }
+
 .keoni-matching__score-qualifier {
 	font-size: 12px;
 	font-weight: 600;
@@ -278,10 +285,11 @@
 	background: #fff;
 }
 
-.keoni-matching__section strong {
+.keoni-matching__section-label {
 	display: block;
 	margin-bottom: 6px;
 	font-size: 12px;
+	font-weight: 700;
 	text-transform: uppercase;
 	letter-spacing: .04em;
 	color: #334155;
@@ -332,6 +340,87 @@
 .keoni-matching__section-grid {
 	display: grid;
 	gap: 10px;
+}
+
+/* En-tête de la modale "Analyser" : score + libellé + barre pleine
+   largeur, porté de la modale d'analyse d'AI Real-Time (rhconsole). */
+.keoni-matching__explain-summary {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	margin-bottom: 4px;
+}
+
+.keoni-matching__explain-summary-top {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+
+.keoni-matching__explain-score {
+	font-size: 15px;
+	min-width: 64px;
+	padding: 6px 12px;
+}
+
+.keoni-matching__explain-tone {
+	font-size: 16px;
+	font-weight: 700;
+}
+
+.keoni-matching__explain-tone.score-high { color: #166534; }
+.keoni-matching__explain-tone.score-medium { color: #9a6700; }
+.keoni-matching__explain-tone.score-low { color: #b91c1c; }
+
+.keoni-matching__explain-subtitle {
+	font-size: 12px;
+	color: #64748b;
+}
+
+/* Détail des scores par composante (extra.score_breakdown, déjà
+   renvoyé par matching-api mais jamais affiché avant) -- même structure
+   que .score-breakdown chez AI Real-Time. */
+.keoni-matching__score-breakdown {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 4px 16px;
+}
+
+.keoni-matching__score-breakdown-item {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	min-width: 150px;
+	flex: 1 1 150px;
+}
+
+.keoni-matching__score-breakdown-label {
+	font-size: 12px;
+	color: #64748b;
+	min-width: 90px;
+	white-space: nowrap;
+}
+
+.keoni-matching__score-breakdown-bar {
+	flex: 1;
+	min-width: 40px;
+	height: 5px;
+	background: #e5e7eb;
+	border-radius: 999px;
+	overflow: hidden;
+}
+
+.keoni-matching__score-breakdown-bar span {
+	display: block;
+	height: 100%;
+}
+
+.keoni-matching__score-breakdown-value {
+	font-size: 12px;
+	color: #334155;
+	min-width: 32px;
+	text-align: right;
+	font-variant-numeric: tabular-nums;
 }
 
 .keoni-matching__resume-keywords {
@@ -562,7 +651,7 @@
 		padding: 8px;
 	}
 
-	.keoni-matching__section strong {
+	.keoni-matching__section-label {
 		font-size: 11px;
 		margin-bottom: 4px;
 	}

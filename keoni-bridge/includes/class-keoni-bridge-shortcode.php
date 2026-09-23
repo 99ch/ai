@@ -231,6 +231,12 @@ class Keoni_Bridge_Shortcode {
                 $rank_label = sprintf( __( 'Rang #%d', 'keoni-bridge' ), $rank_value );
             }
 
+            // Déjà calculé et renvoyé par matching-api (extra.score_breakdown,
+            // voir compute_final_score() -- app/scoring.py) mais jamais
+            // affiché jusqu'ici : un score par composante, dans la modale
+            // "Analyser", comme le "Détail des scores" d'AI Real-Time.
+            $score_breakdown = (array) ( $item['extra']['score_breakdown'] ?? [] );
+
             $score_label   = self::get_score_label( $score );
             $score_percent = max( 0, min( 100, $score ) );
             ?>
@@ -309,9 +315,22 @@ class Keoni_Bridge_Shortcode {
 
                     <!-- Contenu de la modale "Analyser", cloné par JS -- jamais affiché tel quel. -->
                     <template class="keoni-matching__explain-data">
+                        <div class="keoni-matching__explain-summary">
+                            <div class="keoni-matching__explain-summary-top">
+                                <span class="keoni-matching__score keoni-matching__explain-score <?php echo esc_attr( $score_class ); ?>"><?php echo esc_html( number_format_i18n( $score, 1 ) ); ?>%</span>
+                                <div>
+                                    <div class="keoni-matching__explain-tone <?php echo esc_attr( $score_class ); ?>"><?php echo esc_html( $score_label ); ?></div>
+                                    <div class="keoni-matching__explain-subtitle"><?php echo esc_html( sprintf( __( 'Score de compatibilité : %s%%', 'keoni-bridge' ), number_format_i18n( $score, 1 ) ) ); ?></div>
+                                </div>
+                            </div>
+                            <div class="keoni-matching__scorebar" aria-hidden="true">
+                                <span class="<?php echo esc_attr( $score_class ); ?>" style="width:<?php echo esc_attr( number_format( $score_percent, 1, '.', '' ) ); ?>%"></span>
+                            </div>
+                        </div>
+
                         <div class="keoni-matching__section-grid">
                             <div class="keoni-matching__section keoni-matching__section--strengths">
-                                <strong><?php esc_html_e( 'POURQUOI CE MATCH', 'keoni-bridge' ); ?></strong>
+                                <div class="keoni-matching__section-label"><?php esc_html_e( 'Pourquoi ce match', 'keoni-bridge' ); ?></div>
                                 <?php if ( ! empty( $strengths ) ) : ?>
                                     <ul class="keoni-matching__list">
                                         <?php foreach ( $strengths as $strength ) : ?>
@@ -323,7 +342,7 @@ class Keoni_Bridge_Shortcode {
                                 <?php endif; ?>
                             </div>
                             <div class="keoni-matching__section keoni-matching__section--weaknesses">
-                                <strong><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></strong>
+                                <div class="keoni-matching__section-label"><?php esc_html_e( 'Points de vigilance', 'keoni-bridge' ); ?></div>
                                 <?php if ( ! empty( $weaknesses ) ) : ?>
                                     <ul class="keoni-matching__list">
                                         <?php foreach ( $weaknesses as $weakness ) : ?>
@@ -337,7 +356,7 @@ class Keoni_Bridge_Shortcode {
                         </div>
 
                         <div class="keoni-matching__section keoni-matching__section--keywords">
-                            <strong><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></strong>
+                            <div class="keoni-matching__section-label"><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></div>
                             <?php if ( empty( $keywords ) ) : ?>
                                 <p class="keoni-matching__muted"><?php esc_html_e( 'Aucun mot-clé détecté.', 'keoni-bridge' ); ?></p>
                             <?php else : ?>
@@ -348,13 +367,37 @@ class Keoni_Bridge_Shortcode {
                                 </div>
                             <?php endif; ?>
                         </div>
+
+                        <?php if ( ! empty( $score_breakdown ) ) : ?>
+                            <div class="keoni-matching__section keoni-matching__section--breakdown">
+                                <div class="keoni-matching__section-label"><?php esc_html_e( 'Détail des scores', 'keoni-bridge' ); ?></div>
+                                <div class="keoni-matching__score-breakdown">
+                                    <?php foreach ( self::get_score_breakdown_labels() as $key => $label ) : ?>
+                                        <?php
+                                        if ( ! isset( $score_breakdown[ $key ] ) || null === $score_breakdown[ $key ] ) {
+                                            continue;
+                                        }
+                                        $component_pct   = max( 0, min( 100, floatval( $score_breakdown[ $key ] ) * 100 ) );
+                                        $component_class = self::get_score_class( $component_pct );
+                                        ?>
+                                        <div class="keoni-matching__score-breakdown-item">
+                                            <span class="keoni-matching__score-breakdown-label"><?php echo esc_html( $label ); ?></span>
+                                            <div class="keoni-matching__score-breakdown-bar">
+                                                <span class="<?php echo esc_attr( $component_class ); ?>" style="width:<?php echo esc_attr( number_format( $component_pct, 1, '.', '' ) ); ?>%"></span>
+                                            </div>
+                                            <span class="keoni-matching__score-breakdown-value"><?php echo esc_html( number_format_i18n( $component_pct, 0 ) ); ?>%</span>
+                                        </div>
+                                    <?php endforeach; ?>
+                                </div>
+                            </div>
+                        <?php endif; ?>
                     </template>
 
                     <div class="keoni-matching__resume-actions keoni-matching__actions">
                         <button type="button"
                                 class="keoni-matching__btn keoni-matching__btn--primary keoni-matching__btn--full"
                                 data-keoni-open-explain
-                                data-modal-title="<?php echo esc_attr( sprintf( __( 'Analyse -- %s', 'keoni-bridge' ), $name ) ); ?>">
+                                data-modal-title="<?php echo esc_attr( sprintf( __( 'Analyse de la correspondance -- %s', 'keoni-bridge' ), $name ) ); ?>">
                             <?php esc_html_e( 'Analyser', 'keoni-bridge' ); ?>
                         </button>
                         <?php if ( $resume_url ) : ?>
@@ -445,6 +488,23 @@ class Keoni_Bridge_Shortcode {
         }
 
         return 'score-low';
+    }
+
+    // Libellés FR des clés du breakdown de compute_final_score()
+    // (app/scoring.py) -- toutes ne sont pas forcément présentes pour un
+    // candidat donné (composante sans signal exploitable pour ce couple
+    // offre/CV, voir low_confidence_components).
+    private static function get_score_breakdown_labels(): array {
+        return [
+            'semantic'      => __( 'Sémantique', 'keoni-bridge' ),
+            'skills'        => __( 'Compétences', 'keoni-bridge' ),
+            'experience'    => __( 'Expérience', 'keoni-bridge' ),
+            'jobtype'       => __( 'Type de contrat', 'keoni-bridge' ),
+            'category'      => __( 'Catégorie', 'keoni-bridge' ),
+            'location'      => __( 'Localisation', 'keoni-bridge' ),
+            'salary'        => __( 'Salaire', 'keoni-bridge' ),
+            'qualification' => __( 'Qualification', 'keoni-bridge' ),
+        ];
     }
 
     private static function get_score_label( float $score ): string {
