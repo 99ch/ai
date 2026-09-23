@@ -216,6 +216,7 @@ class Keoni_Bridge_Shortcode {
             $salary            = $resume['salary'] ?? '';
             $location          = $resume['location'] ?? '';
             $photo             = $resume['photo_url'] ?? $default_avatar;
+            $profile_url       = $resume['view_url'] ?? '';
             $created_at        = '';
 
             if ( ! empty( $resume['created_at'] ) ) {
@@ -240,7 +241,13 @@ class Keoni_Bridge_Shortcode {
                             <img src="<?php echo esc_url( $photo ); ?>" alt="<?php echo esc_attr( $name ); ?>" />
                         </div>
                         <div class="keoni-matching__identity">
-                            <h3 class="keoni-matching__resume-name"><?php echo esc_html( $name ); ?></h3>
+                            <h3 class="keoni-matching__resume-name">
+                                <?php if ( $profile_url ) : ?>
+                                    <a href="<?php echo esc_url( $profile_url ); ?>" target="_blank" rel="noopener"><?php echo esc_html( $name ); ?></a>
+                                <?php else : ?>
+                                    <?php echo esc_html( $name ); ?>
+                                <?php endif; ?>
+                            </h3>
                             <div class="keoni-matching__identity-badges">
                                 <?php if ( $job_type ) : ?>
                                     <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $job_type ); ?></span>

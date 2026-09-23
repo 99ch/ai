@@ -111,6 +111,17 @@
 	color: #0f172a;
 }
 
+.keoni-matching__resume-name a {
+	color: inherit !important;
+	text-decoration: none !important;
+}
+
+.keoni-matching__resume-name a:hover,
+.keoni-matching__resume-name a:focus-visible {
+	text-decoration: underline !important;
+	color: #0b1f4b !important;
+}
+
 .keoni-matching__identity-badges {
 	display: flex;
 	flex-wrap: wrap;
