@@ -43,6 +43,19 @@
 		window.scrollTo(0, lockedScrollY);
 	}
 
+	// Contour rouge sur le bouton juste cliqué, pour le retrouver après
+	// coup dans la liste des cartes (persiste après la fermeture de la
+	// modale -- retiré seulement quand un autre bouton est cliqué).
+	var lastClickedButton = null;
+
+	function markLastClicked(button) {
+		if (lastClickedButton && lastClickedButton !== button) {
+			lastClickedButton.classList.remove('keoni-matching__btn--last-clicked');
+		}
+		button.classList.add('keoni-matching__btn--last-clicked');
+		lastClickedButton = button;
+	}
+
 	function openModal(title, contentNode) {
 		var els = getModalEls();
 		if (!els) return;
@@ -91,6 +104,7 @@
 		var ajaxUrl = settings.ajaxUrl;
 		if (!ajaxUrl) return;
 		var title = button.dataset.modalTitle || '';
+		markLastClicked(button);
 
 		if (button.dataset.cachedHtml) {
 			var cached = document.createElement('div');
@@ -149,6 +163,7 @@
 		var explainButton = event.target.closest('[data-keoni-open-explain]');
 		if (explainButton) {
 			event.preventDefault();
+			markLastClicked(explainButton);
 			var card = explainButton.closest('.keoni-matching__card');
 			var template = card ? card.querySelector('.keoni-matching__explain-data') : null;
 			if (!template) return;
@@ -160,6 +175,7 @@
 		var cvButton = event.target.closest('[data-keoni-open-cv]');
 		if (cvButton) {
 			event.preventDefault();
+			markLastClicked(cvButton);
 			var cvUrl = cvButton.dataset.cvUrl;
 			if (!cvUrl) return;
 			var iframe = document.createElement('iframe');

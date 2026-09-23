@@ -530,6 +530,15 @@
 	border-color: #0b1f4b !important;
 }
 
+/* Contour rouge sur le dernier bouton cliqué (Analyser/Voir le CV/Voir le
+   CV extrait/Job extrait) : outline plutôt que border, pour ne pas
+   décaler la mise en page ni écraser la bordure de couleur existante du
+   bouton. Persiste après la fermeture de la modale. */
+.keoni-matching__btn--last-clicked {
+	outline: 2px solid #dc2626 !important;
+	outline-offset: 2px !important;
+}
+
 .keoni-matching__empty {
 	padding: 20px;
 	border: 1px dashed #cbd5e1;
