@@ -11,6 +11,38 @@
 		};
 	}
 
+	// La modale est en position:fixed par-dessus la page, mais ça ne
+	// bloque pas le scroll du <body> en dessous : un geste de scroll
+	// (molette/trackpad/tactile) fait défiler l'arrière-plan en même
+	// temps que le contenu de la modale. On verrouille le scroll de la
+	// page tant qu'une modale est ouverte, et on restaure la position de
+	// scroll d'origine à la fermeture (position:fixed sur le body sinon
+	// la page remonte en haut).
+	var lockedScrollY = 0;
+	var isLocked = false;
+
+	function lockBodyScroll() {
+		if (isLocked) return; // ex: un 2e clic ouvre un autre candidat sans repasser par closeModal()
+		isLocked = true;
+		lockedScrollY = window.scrollY;
+		document.body.style.position = 'fixed';
+		document.body.style.top = '-' + lockedScrollY + 'px';
+		document.body.style.left = '0';
+		document.body.style.right = '0';
+		document.body.style.width = '100%';
+	}
+
+	function unlockBodyScroll() {
+		if (!isLocked) return;
+		isLocked = false;
+		document.body.style.position = '';
+		document.body.style.top = '';
+		document.body.style.left = '';
+		document.body.style.right = '';
+		document.body.style.width = '';
+		window.scrollTo(0, lockedScrollY);
+	}
+
 	function openModal(title, contentNode) {
 		var els = getModalEls();
 		if (!els) return;
@@ -18,6 +50,7 @@
 		els.body.innerHTML = '';
 		if (contentNode) els.body.appendChild(contentNode);
 		els.modal.hidden = false;
+		lockBodyScroll();
 	}
 
 	function closeModal() {
@@ -25,6 +58,7 @@
 		if (!els) return;
 		els.modal.hidden = true;
 		els.body.innerHTML = '';
+		unlockBodyScroll();
 	}
 
 	function textNode(className, text) {
