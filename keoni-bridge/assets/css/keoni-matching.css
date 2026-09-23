@@ -371,6 +371,13 @@
 	color: #64748b;
 }
 
+.keoni-matching__explain-text {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #64748b;
+}
+
 /* Détail des scores par composante (extra.score_breakdown, déjà
    renvoyé par matching-api mais jamais affiché avant) -- même structure
    que .score-breakdown chez AI Real-Time. */
@@ -794,7 +801,8 @@
 	color: #e8eaf4 !important;
 }
 
-.keoni-matching-modal__body .keoni-matching__explain-subtitle {
+.keoni-matching-modal__body .keoni-matching__explain-subtitle,
+.keoni-matching-modal__body .keoni-matching__explain-text {
 	color: #8b91aa;
 }
 

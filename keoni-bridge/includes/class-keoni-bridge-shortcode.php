@@ -183,6 +183,10 @@ class Keoni_Bridge_Shortcode {
             $keywords    = (array) ( $item['keywords'] ?? [] );
             $strengths   = (array) ( $item['strengths'] ?? [] );
             $weaknesses  = (array) ( $item['weaknesses'] ?? [] );
+            // Phrase de synthèse générée côté matching-api (extra.summary,
+            // build_score()) -- vide pour les résultats déjà en base avant
+            // ce déploiement (extra json ne l'a pas), pas une erreur.
+            $summary     = (string) ( $item['extra']['summary'] ?? '' );
             $email_raw   = $cv['candidate_email'] ?? '';
             $resume_key  = strtolower( $email_raw );
             $resume      = $resume_key && isset( $resume_map[ $resume_key ] ) ? $resume_map[ $resume_key ] : null;
@@ -326,6 +330,22 @@ class Keoni_Bridge_Shortcode {
                             <div class="keoni-matching__scorebar" aria-hidden="true">
                                 <span class="<?php echo esc_attr( $score_class ); ?>" style="width:<?php echo esc_attr( number_format( $score_percent, 1, '.', '' ) ); ?>%"></span>
                             </div>
+                            <?php if ( $summary ) : ?>
+                                <p class="keoni-matching__explain-text"><?php echo esc_html( $summary ); ?></p>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="keoni-matching__section keoni-matching__section--keywords">
+                            <div class="keoni-matching__section-label"><?php esc_html_e( 'Mots-clés communs', 'keoni-bridge' ); ?></div>
+                            <?php if ( empty( $keywords ) ) : ?>
+                                <p class="keoni-matching__muted"><?php esc_html_e( 'Aucun mot-clé détecté.', 'keoni-bridge' ); ?></p>
+                            <?php else : ?>
+                                <div class="keoni-matching__resume-keywords">
+                                    <?php foreach ( $keywords as $keyword ) : ?>
+                                        <span><?php echo esc_html( $keyword ); ?></span>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
                         <div class="keoni-matching__section-grid">
@@ -353,19 +373,6 @@ class Keoni_Bridge_Shortcode {
                                     <p><?php esc_html_e( 'Aucun signal particulier.', 'keoni-bridge' ); ?></p>
                                 <?php endif; ?>
                             </div>
-                        </div>
-
-                        <div class="keoni-matching__section keoni-matching__section--keywords">
-                            <div class="keoni-matching__section-label"><?php esc_html_e( 'Mots-clés', 'keoni-bridge' ); ?></div>
-                            <?php if ( empty( $keywords ) ) : ?>
-                                <p class="keoni-matching__muted"><?php esc_html_e( 'Aucun mot-clé détecté.', 'keoni-bridge' ); ?></p>
-                            <?php else : ?>
-                                <div class="keoni-matching__resume-keywords">
-                                    <?php foreach ( $keywords as $keyword ) : ?>
-                                        <span><?php echo esc_html( $keyword ); ?></span>
-                                    <?php endforeach; ?>
-                                </div>
-                            <?php endif; ?>
                         </div>
 
                         <?php if ( ! empty( $score_breakdown ) ) : ?>
