@@ -214,7 +214,12 @@ class Keoni_Bridge_Shortcode {
                 $rank_label = sprintf( __( 'Rang #%d', 'keoni-bridge' ), $rank_value );
             }
 
-            $score_percent = max( 0, min( 100, $score ) );
+            $score_label = self::get_score_label( $score );
+            // Rééchelonné sur SCORE_VISUAL_MAX (pas 100) : sinon même un
+            // excellent candidat (score réel ~55) affiche une barre à
+            // peine remplie à moitié, ce qui se lit à tort comme un
+            // mauvais résultat.
+            $score_percent = max( 0, min( 100, ( $score / self::SCORE_VISUAL_MAX ) * 100 ) );
             $details_open  = ( 1 === $rank_value ) ? ' open' : '';
             ?>
             <article class="keoni-matching__card keoni-matching__card--resume">
@@ -242,6 +247,7 @@ class Keoni_Bridge_Shortcode {
                             <div class="keoni-matching__scorebar" aria-hidden="true">
                                 <span class="<?php echo esc_attr( $score_class ); ?>" style="width:<?php echo esc_attr( number_format( $score_percent, 1, '.', '' ) ); ?>%"></span>
                             </div>
+                            <span class="keoni-matching__score-qualifier <?php echo esc_attr( $score_class ); ?>"><?php echo esc_html( $score_label ); ?></span>
                         </div>
                     </div>
 
@@ -404,16 +410,36 @@ class Keoni_Bridge_Shortcode {
         return implode( ', ', $clean );
     }
 
+    // matching-api plafonne le score final par la couverture
+    // compétences/mots-clés (voir compute_final_score()/SKILL_CAP_FLOOR) :
+    // en pratique un très bon candidat dépasse rarement ~55-60/100, un
+    // seuil "score-high" à 80 n'est quasiment jamais atteint. Seuils
+    // recalibrés sur la distribution réelle observée en prod plutôt que
+    // sur une échelle 0-100 théorique jamais remplie.
+    const SCORE_VISUAL_MAX = 60.0;
+
     private static function get_score_class( float $score ): string {
-        if ( $score >= 80 ) {
+        if ( $score >= 45 ) {
             return 'score-high';
         }
 
-        if ( $score >= 60 ) {
+        if ( $score >= 25 ) {
             return 'score-medium';
         }
 
         return 'score-low';
+    }
+
+    private static function get_score_label( float $score ): string {
+        if ( $score >= 45 ) {
+            return __( 'Très bon profil', 'keoni-bridge' );
+        }
+
+        if ( $score >= 25 ) {
+            return __( 'Profil à considérer', 'keoni-bridge' );
+        }
+
+        return __( 'Correspondance partielle', 'keoni-bridge' );
     }
 
     private static function format_duration_ms( $duration_ms ): string {
