@@ -312,52 +312,10 @@
 	gap: 6px;
 }
 
-.keoni-matching__details {
-	border: 1px solid #e2e8f0;
-	border-radius: 10px;
-	background: #fff;
-	padding: 0;
-}
-
-.keoni-matching__details summary {
-	cursor: pointer;
-	list-style: none;
-	padding: 10px 12px;
-	font-size: 13px;
-	font-weight: 600;
-	color: #1e3a8a;
-	border-bottom: 1px solid #e2e8f0;
+.keoni-matching__resume-chips {
 	display: flex;
-	align-items: center;
-	justify-content: space-between;
-}
-
-.keoni-matching__details summary::-webkit-details-marker {
-	display: none;
-}
-
-.keoni-matching__details summary::after {
-	content: "";
-	width: 8px;
-	height: 8px;
-	margin-left: 8px;
-	border-right: 2px solid #1e3a8a;
-	border-bottom: 2px solid #1e3a8a;
-	transform: rotate(45deg);
-	transition: transform 0.2s ease;
-}
-
-.keoni-matching__details[open] summary {
-	background: #f8fafc;
-}
-
-.keoni-matching__details[open] summary::after {
-	transform: rotate(225deg);
-}
-
-.keoni-matching__details > .keoni-matching__section-grid,
-.keoni-matching__details > .keoni-matching__section {
-	margin: 10px;
+	flex-wrap: wrap;
+	gap: 8px;
 }
 
 .keoni-matching__section-grid {
@@ -387,24 +345,11 @@
 	font-size: 13px;
 }
 
-.keoni-matching__structured {
-	display: flex;
-	flex-direction: column;
-	gap: 8px;
-	background: #f8fafc;
-	border: 1px solid #e2e8f0;
-	border-radius: 10px;
-	padding: 10px 12px;
-	margin: 0 0 8px;
-}
-
 .keoni-matching__structured-text {
 	margin: 0;
 	color: #334155;
 	font-size: 13px;
 	line-height: 1.5;
-	max-height: 220px;
-	overflow-y: auto;
 	white-space: pre-wrap;
 }
 
@@ -420,11 +365,6 @@
 	gap: 8px;
 }
 
-.keoni-matching__actions-secondary {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 8px;
-}
 
 .keoni-matching__btn {
 	display: inline-flex;
@@ -612,8 +552,7 @@
 	}
 
 	.keoni-matching__list li,
-	.keoni-matching__muted,
-	.keoni-matching__details summary {
+	.keoni-matching__muted {
 		font-size: 12px;
 	}
 
@@ -632,18 +571,110 @@
 		padding: 8px 10px;
 	}
 
-	.keoni-matching__actions-secondary {
+	.keoni-matching__resume-chips {
 		width: 100%;
 		gap: 6px;
 	}
 
-	.keoni-matching__actions-secondary .keoni-matching__chip {
+	.keoni-matching__resume-chips .keoni-matching__chip {
 		width: 100%;
 		justify-content: center;
 	}
+}
 
-	.keoni-matching__details > .keoni-matching__section-grid,
-	.keoni-matching__details > .keoni-matching__section {
-		margin: 8px;
+/* ---- Modale "Analyser" / "Voir le CV" / "Voir le CV extrait" / "Job extrait" ----
+   Porté du composant modal d'AI Real-Time (frontend/styles/components.css) :
+   même structure backdrop/card/header/body, redemandé explicitement pour
+   rester visuellement cohérent avec l'autre outil. */
+.keoni-matching-modal {
+	position: fixed;
+	inset: 0;
+	z-index: 100000;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 16px;
+}
+
+.keoni-matching-modal[hidden] {
+	display: none;
+}
+
+.keoni-matching-modal__backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(15, 23, 42, 0.6);
+	backdrop-filter: blur(2px);
+}
+
+.keoni-matching-modal__card {
+	position: relative;
+	z-index: 1;
+	background: #fff;
+	border: 1px solid #e2e8f0;
+	border-radius: 14px;
+	box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+	width: 100%;
+	max-width: 720px;
+	max-height: calc(100dvh - 32px);
+	display: flex;
+	flex-direction: column;
+}
+
+.keoni-matching-modal__header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	padding: 16px 20px;
+	border-bottom: 1px solid #e2e8f0;
+	flex-shrink: 0;
+}
+
+.keoni-matching-modal__title {
+	margin: 0;
+	font-size: 15px;
+	font-weight: 700;
+	color: #0f172a;
+}
+
+.keoni-matching-modal__close {
+	appearance: none;
+	border: none;
+	background: #f1f5f9;
+	color: #334155;
+	width: 28px;
+	height: 28px;
+	border-radius: 999px;
+	font-size: 18px;
+	line-height: 1;
+	cursor: pointer;
+	flex-shrink: 0;
+}
+
+.keoni-matching-modal__close:hover {
+	background: #e2e8f0;
+}
+
+.keoni-matching-modal__body {
+	padding: 20px;
+	overflow-y: auto;
+	flex: 1 1 auto;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+}
+
+.keoni-matching-modal__body iframe {
+	width: 100%;
+	height: min(70dvh, 800px);
+	border: 1px solid #e2e8f0;
+	border-radius: 8px;
+}
+
+@media (max-width: 640px) {
+	.keoni-matching-modal__card {
+		max-width: 100%;
 	}
 }

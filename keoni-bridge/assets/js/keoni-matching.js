@@ -1,1 +1,275 @@
-(function(){const settings=window.KeoniMatching||{};document.addEventListener('click',event=>{const extractButton=event.target.closest('[data-keoni-extract-cv]');if(extractButton){event.preventDefault();const panel=extractButton.parentElement.querySelector('.keoni-matching__structured');if(!panel)return;if(panel.dataset.loaded==='1'){panel.hidden=!panel.hidden;return;}if(extractButton.dataset.loading==='1')return;const ajaxUrl=settings.ajaxUrl;if(!ajaxUrl)return;const defaultText=extractButton.dataset.defaultText||'Voir le CV extrait';extractButton.dataset.loading='1';extractButton.textContent=extractButton.dataset.loadingText||'Analyse...';const params=new URLSearchParams();params.append('action','keoni_bridge_extract_cv');params.append('nonce',extractButton.dataset.nonce||'');params.append('cv_id',extractButton.dataset.cvId||'');params.append('job_id',extractButton.dataset.jobId||'');fetch(ajaxUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:params.toString()}).then(resp=>resp.json()).then(result=>{extractButton.dataset.loading='0';extractButton.textContent=defaultText;if(!result||!result.success){throw new Error(result?.data?.message||"Erreur lors de l'analyse du CV.");}const data=result.data||{};panel.innerHTML='';const textBlock=document.createElement('p');textBlock.className='keoni-matching__structured-text';textBlock.textContent=data.text||'Aucun texte exploitable.';panel.appendChild(textBlock);if(Array.isArray(data.skills)&&data.skills.length){const skillsWrap=document.createElement('div');skillsWrap.className='keoni-matching__resume-keywords';data.skills.forEach(skill=>{const span=document.createElement('span');span.textContent=skill;skillsWrap.appendChild(span);});panel.appendChild(skillsWrap);}panel.dataset.loaded='1';panel.hidden=false;}).catch((error)=>{extractButton.dataset.loading='0';extractButton.textContent=defaultText;panel.innerHTML='';const errEl=document.createElement('p');errEl.className='keoni-matching__muted';errEl.textContent=error?.message||"Erreur lors de l'analyse du CV.";panel.appendChild(errEl);panel.hidden=false;});return;}const resetButton=event.target.closest('[data-keoni-reset]');if(resetButton){event.preventDefault();if(resetButton.dataset.loading==='1')return;const ajaxUrl=settings.ajaxUrl;if(!ajaxUrl)return;const container=resetButton.closest('.keoni-matching-wrapper');if(!container)return;const list=container.querySelector('.keoni-matching');const confirmText=resetButton.dataset.confirmText||'';if(confirmText&&typeof window.confirm==='function'){if(!window.confirm(confirmText))return;}const params=new URLSearchParams();params.append('action','keoni_bridge_reset_matching');params.append('nonce',resetButton.dataset.nonce||'');params.append('job_id',resetButton.dataset.jobId||'');resetButton.dataset.loading='1';const defaultText=resetButton.dataset.defaultText||'Réinitialiser les résultats IA';resetButton.textContent=resetButton.dataset.loadingText||'Réinitialisation...';fetch(ajaxUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:params.toString()}).then(resp=>resp.json()).then(result=>{resetButton.dataset.loading='0';resetButton.textContent=defaultText;if(!result||!result.success){const msg=result?.data?.message||'Erreur lors de la réinitialisation.';throw new Error(msg);}if(list){list.innerHTML='';}const empty=document.createElement('div');empty.className='keoni-matching__empty';empty.textContent='Résultats IA supprimés. Relancez le matching pour régénérer.';if(list){list.appendChild(empty);}const loadMore=container.querySelector('[data-keoni-load-more]');if(loadMore){loadMore.remove();}}).catch((error)=>{resetButton.dataset.loading='0';resetButton.textContent=defaultText;const message=error?.message||'Erreur lors de la réinitialisation.';if(list){const empty=document.createElement('div');empty.className='keoni-matching__empty';empty.textContent=message;list.prepend(empty);}else if(typeof window.alert==='function'){window.alert(message);}});return;}const button=event.target.closest('[data-keoni-load-more]');if(!button)return;event.preventDefault();if(button.dataset.loading==='1')return;const ajaxUrl=settings.ajaxUrl;if(!ajaxUrl)return;const container=button.closest('.keoni-matching-wrapper');if(!container)return;const list=container.querySelector('.keoni-matching');if(!list)return;const limit=parseInt(button.dataset.limit||'20',10);const offset=parseInt(button.dataset.offset||'0',10);const params=new URLSearchParams();params.append('action','keoni_matching_load_more');params.append('nonce',button.dataset.nonce||'');params.append('job_id',button.dataset.jobId||'');params.append('limit',String(limit));params.append('offset',String(offset));params.append('min_score',button.dataset.minScore||'0');button.dataset.loading='1';const defaultText=button.dataset.defaultText||'Afficher plus';button.textContent=button.dataset.loadingText||'Chargement...';fetch(ajaxUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:params.toString()}).then(resp=>resp.json()).then(result=>{button.dataset.loading='0';button.textContent=defaultText;if(!result||!result.success){throw new Error(result?.data?.message||'Erreur');}const data=result.data||{};if(!data.html){button.remove();return;}const template=document.createElement('template');template.innerHTML=data.html.trim();list.appendChild(template.content);if(data.has_more){button.dataset.offset=String(data.next_offset ?? (offset+limit));button.dataset.limit=String(data.limit ?? limit);}else{button.remove();}}).catch(()=>{button.dataset.loading='0';button.textContent=defaultText;});});})();
+(function () {
+	var settings = window.KeoniMatching || {};
+
+	function getModalEls() {
+		var modal = document.getElementById('keoni-matching-modal');
+		if (!modal) return null;
+		return {
+			modal: modal,
+			title: document.getElementById('keoni-matching-modal-title'),
+			body: document.getElementById('keoni-matching-modal-body'),
+		};
+	}
+
+	function openModal(title, contentNode) {
+		var els = getModalEls();
+		if (!els) return;
+		els.title.textContent = title || '';
+		els.body.innerHTML = '';
+		if (contentNode) els.body.appendChild(contentNode);
+		els.modal.hidden = false;
+	}
+
+	function closeModal() {
+		var els = getModalEls();
+		if (!els) return;
+		els.modal.hidden = true;
+		els.body.innerHTML = '';
+	}
+
+	function textNode(className, text) {
+		var el = document.createElement('p');
+		el.className = className;
+		el.textContent = text;
+		return el;
+	}
+
+	// Rendu partagé pour "Voir le CV extrait" et "Job extrait" (Analyse
+	// IA texte+compétences, même forme de réponse côté PHP pour les deux
+	// actions -- voir ajax_extract_cv()/ajax_extract_job()).
+	function renderExtractResult(data) {
+		var wrap = document.createElement('div');
+		wrap.appendChild(textNode('keoni-matching__structured-text', data.text || 'Aucun texte exploitable.'));
+		if (Array.isArray(data.skills) && data.skills.length) {
+			var skillsWrap = document.createElement('div');
+			skillsWrap.className = 'keoni-matching__resume-keywords';
+			data.skills.forEach(function (skill) {
+				var span = document.createElement('span');
+				span.textContent = skill;
+				skillsWrap.appendChild(span);
+			});
+			wrap.appendChild(skillsWrap);
+		}
+		return wrap;
+	}
+
+	function runExtract(button, action, extraParams) {
+		var ajaxUrl = settings.ajaxUrl;
+		if (!ajaxUrl) return;
+		var title = button.dataset.modalTitle || '';
+
+		if (button.dataset.cachedHtml) {
+			var cached = document.createElement('div');
+			cached.innerHTML = button.dataset.cachedHtml;
+			openModal(title, cached);
+			return;
+		}
+
+		if (button.dataset.loading === '1') return;
+
+		var defaultText = button.dataset.defaultText || button.textContent;
+		button.dataset.loading = '1';
+		button.disabled = true;
+		button.textContent = button.dataset.loadingText || 'Analyse...';
+
+		var params = new URLSearchParams();
+		params.append('action', action);
+		params.append('nonce', button.dataset.nonce || '');
+		Object.keys(extraParams).forEach(function (key) {
+			params.append(key, extraParams[key]);
+		});
+
+		fetch(ajaxUrl, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+			body: params.toString(),
+		})
+			.then(function (resp) { return resp.json(); })
+			.then(function (result) {
+				button.dataset.loading = '0';
+				button.disabled = false;
+				button.textContent = defaultText;
+				if (!result || !result.success) {
+					throw new Error((result && result.data && result.data.message) || "Erreur lors de l'analyse.");
+				}
+				var data = result.data || {};
+				var content = renderExtractResult(data);
+				button.dataset.cachedHtml = content.innerHTML;
+				openModal(title, content);
+			})
+			.catch(function (error) {
+				button.dataset.loading = '0';
+				button.disabled = false;
+				button.textContent = defaultText;
+				openModal(title, textNode('keoni-matching__muted', (error && error.message) || "Erreur lors de l'analyse."));
+			});
+	}
+
+	document.addEventListener('click', function (event) {
+		if (event.target.closest('[data-keoni-modal-close]')) {
+			event.preventDefault();
+			closeModal();
+			return;
+		}
+
+		var explainButton = event.target.closest('[data-keoni-open-explain]');
+		if (explainButton) {
+			event.preventDefault();
+			var card = explainButton.closest('.keoni-matching__card');
+			var template = card ? card.querySelector('.keoni-matching__explain-data') : null;
+			if (!template) return;
+			var content = document.importNode(template.content, true);
+			openModal(explainButton.dataset.modalTitle || 'Analyse', content);
+			return;
+		}
+
+		var cvButton = event.target.closest('[data-keoni-open-cv]');
+		if (cvButton) {
+			event.preventDefault();
+			var cvUrl = cvButton.dataset.cvUrl;
+			if (!cvUrl) return;
+			var iframe = document.createElement('iframe');
+			iframe.src = cvUrl;
+			iframe.title = cvButton.dataset.modalTitle || 'CV';
+			openModal(cvButton.dataset.modalTitle || 'CV', iframe);
+			return;
+		}
+
+		var extractCvButton = event.target.closest('[data-keoni-extract-cv]');
+		if (extractCvButton) {
+			event.preventDefault();
+			runExtract(extractCvButton, 'keoni_bridge_extract_cv', {
+				cv_id: extractCvButton.dataset.cvId || '',
+				job_id: extractCvButton.dataset.jobId || '',
+			});
+			return;
+		}
+
+		var extractJobButton = event.target.closest('[data-keoni-extract-job]');
+		if (extractJobButton) {
+			event.preventDefault();
+			runExtract(extractJobButton, 'keoni_bridge_extract_job', {
+				job_id: extractJobButton.dataset.jobId || '',
+			});
+			return;
+		}
+
+		var resetButton = event.target.closest('[data-keoni-reset]');
+		if (resetButton) {
+			event.preventDefault();
+			if (resetButton.dataset.loading === '1') return;
+			var ajaxUrl = settings.ajaxUrl;
+			if (!ajaxUrl) return;
+			var container = resetButton.closest('.keoni-matching-wrapper');
+			if (!container) return;
+			var list = container.querySelector('.keoni-matching');
+			var confirmText = resetButton.dataset.confirmText || '';
+			if (confirmText && typeof window.confirm === 'function') {
+				if (!window.confirm(confirmText)) return;
+			}
+			var params = new URLSearchParams();
+			params.append('action', 'keoni_bridge_reset_matching');
+			params.append('nonce', resetButton.dataset.nonce || '');
+			params.append('job_id', resetButton.dataset.jobId || '');
+			resetButton.dataset.loading = '1';
+			var defaultText = resetButton.dataset.defaultText || 'Réinitialiser les résultats IA';
+			resetButton.textContent = resetButton.dataset.loadingText || 'Réinitialisation...';
+			fetch(ajaxUrl, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+				body: params.toString(),
+			})
+				.then(function (resp) { return resp.json(); })
+				.then(function (result) {
+					resetButton.dataset.loading = '0';
+					resetButton.textContent = defaultText;
+					if (!result || !result.success) {
+						throw new Error((result && result.data && result.data.message) || 'Erreur lors de la réinitialisation.');
+					}
+					if (list) list.innerHTML = '';
+					var empty = document.createElement('div');
+					empty.className = 'keoni-matching__empty';
+					empty.textContent = 'Résultats IA supprimés. Relancez le matching pour régénérer.';
+					if (list) list.appendChild(empty);
+					var loadMore = container.querySelector('[data-keoni-load-more]');
+					if (loadMore) loadMore.remove();
+				})
+				.catch(function (error) {
+					resetButton.dataset.loading = '0';
+					resetButton.textContent = defaultText;
+					var message = (error && error.message) || 'Erreur lors de la réinitialisation.';
+					if (list) {
+						var empty = document.createElement('div');
+						empty.className = 'keoni-matching__empty';
+						empty.textContent = message;
+						list.prepend(empty);
+					} else if (typeof window.alert === 'function') {
+						window.alert(message);
+					}
+				});
+			return;
+		}
+
+		var loadMoreButton = event.target.closest('[data-keoni-load-more]');
+		if (loadMoreButton) {
+			event.preventDefault();
+			if (loadMoreButton.dataset.loading === '1') return;
+			var ajaxUrl2 = settings.ajaxUrl;
+			if (!ajaxUrl2) return;
+			var container2 = loadMoreButton.closest('.keoni-matching-wrapper');
+			if (!container2) return;
+			var list2 = container2.querySelector('.keoni-matching');
+			if (!list2) return;
+			var limit = parseInt(loadMoreButton.dataset.limit || '20', 10);
+			var offset = parseInt(loadMoreButton.dataset.offset || '0', 10);
+			var params2 = new URLSearchParams();
+			params2.append('action', 'keoni_matching_load_more');
+			params2.append('nonce', loadMoreButton.dataset.nonce || '');
+			params2.append('job_id', loadMoreButton.dataset.jobId || '');
+			params2.append('limit', String(limit));
+			params2.append('offset', String(offset));
+			params2.append('min_score', loadMoreButton.dataset.minScore || '0');
+			loadMoreButton.dataset.loading = '1';
+			var defaultText2 = loadMoreButton.dataset.defaultText || 'Afficher plus';
+			loadMoreButton.textContent = loadMoreButton.dataset.loadingText || 'Chargement...';
+			fetch(ajaxUrl2, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
+				body: params2.toString(),
+			})
+				.then(function (resp) { return resp.json(); })
+				.then(function (result) {
+					loadMoreButton.dataset.loading = '0';
+					loadMoreButton.textContent = defaultText2;
+					if (!result || !result.success) {
+						throw new Error((result && result.data && result.data.message) || 'Erreur');
+					}
+					var data = result.data || {};
+					if (!data.html) {
+						loadMoreButton.remove();
+						return;
+					}
+					var template2 = document.createElement('template');
+					template2.innerHTML = data.html.trim();
+					list2.appendChild(template2.content);
+					if (data.has_more) {
+						loadMoreButton.dataset.offset = String(data.next_offset != null ? data.next_offset : (offset + limit));
+						loadMoreButton.dataset.limit = String(data.limit != null ? data.limit : limit);
+					} else {
+						loadMoreButton.remove();
+					}
+				})
+				.catch(function () {
+					loadMoreButton.dataset.loading = '0';
+					loadMoreButton.textContent = defaultText2;
+				});
+			return;
+		}
+	});
+
+	document.addEventListener('keydown', function (event) {
+		if (event.key !== 'Escape') return;
+		var els = getModalEls();
+		if (els && !els.modal.hidden) closeModal();
+	});
+})();

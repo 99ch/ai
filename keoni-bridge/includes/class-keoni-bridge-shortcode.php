@@ -78,6 +78,16 @@ class Keoni_Bridge_Shortcode {
         ob_start();
         ?>
         <div class="keoni-matching-wrapper">
+        <div id="keoni-matching-modal" class="keoni-matching-modal" hidden role="dialog" aria-modal="true" aria-labelledby="keoni-matching-modal-title">
+            <div class="keoni-matching-modal__backdrop" data-keoni-modal-close></div>
+            <div class="keoni-matching-modal__card">
+                <div class="keoni-matching-modal__header">
+                    <h3 class="keoni-matching-modal__title" id="keoni-matching-modal-title"></h3>
+                    <button type="button" class="keoni-matching-modal__close" data-keoni-modal-close aria-label="<?php esc_attr_e( 'Fermer', 'keoni-bridge' ); ?>">&times;</button>
+                </div>
+                <div class="keoni-matching-modal__body" id="keoni-matching-modal-body"></div>
+            </div>
+        </div>
         <section class="keoni-matching-kpis" aria-label="<?php echo esc_attr__( 'KPI workflow n8n', 'keoni-bridge' ); ?>">
             <div class="keoni-matching-kpis__grid">
                 <article class="keoni-matching-kpis__item">
@@ -150,6 +160,13 @@ class Keoni_Bridge_Shortcode {
         wp_localize_script( $this->script_handle, 'KeoniMatching', [
             'ajaxUrl' => admin_url( 'admin-ajax.php' ),
         ] );
+
+        // Enqueué systématiquement (pas seulement quand le shortcode
+        // [keoni_matching] est présent) : les boutons "Lancer IA"/"Job
+        // extrait" vivent aussi sur myjobs.php et dans l'en-tête de
+        // viewjob.php, en dehors du shortcode lui-même.
+        wp_enqueue_style( $this->style_handle );
+        wp_enqueue_script( $this->script_handle );
     }
 
     public static function render_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [], int $job_id = 0, string $extract_cv_nonce = '' ): string {
@@ -199,7 +216,6 @@ class Keoni_Bridge_Shortcode {
             $salary            = $resume['salary'] ?? '';
             $location          = $resume['location'] ?? '';
             $photo             = $resume['photo_url'] ?? $default_avatar;
-            $profile_url       = $resume['view_url'] ?? '';
             $created_at        = '';
 
             if ( ! empty( $resume['created_at'] ) ) {
@@ -214,13 +230,8 @@ class Keoni_Bridge_Shortcode {
                 $rank_label = sprintf( __( 'Rang #%d', 'keoni-bridge' ), $rank_value );
             }
 
-            $score_label = self::get_score_label( $score );
-            // Rééchelonné sur SCORE_VISUAL_MAX (pas 100) : sinon même un
-            // excellent candidat (score réel ~55) affiche une barre à
-            // peine remplie à moitié, ce qui se lit à tort comme un
-            // mauvais résultat.
-            $score_percent = max( 0, min( 100, ( $score / self::SCORE_VISUAL_MAX ) * 100 ) );
-            $details_open  = ( 1 === $rank_value ) ? ' open' : '';
+            $score_label   = self::get_score_label( $score );
+            $score_percent = max( 0, min( 100, $score ) );
             ?>
             <article class="keoni-matching__card keoni-matching__card--resume">
                 <div class="keoni-matching__body">
@@ -278,8 +289,19 @@ class Keoni_Bridge_Shortcode {
                         <?php endif; ?>
                     </div>
 
-                    <details class="keoni-matching__details"<?php echo esc_attr( $details_open ); ?>>
-                        <summary><?php esc_html_e( 'Voir détails', 'keoni-bridge' ); ?></summary>
+                    <?php if ( $location || $salary ) : ?>
+                        <div class="keoni-matching__resume-chips">
+                            <?php if ( $location ) : ?>
+                                <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $location ); ?></span>
+                            <?php endif; ?>
+                            <?php if ( $salary ) : ?>
+                                <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $salary ); ?></span>
+                            <?php endif; ?>
+                        </div>
+                    <?php endif; ?>
+
+                    <!-- Contenu de la modale "Analyser", cloné par JS -- jamais affiché tel quel. -->
+                    <template class="keoni-matching__explain-data">
                         <div class="keoni-matching__section-grid">
                             <div class="keoni-matching__section keoni-matching__section--strengths">
                                 <strong><?php esc_html_e( 'POURQUOI CE MATCH', 'keoni-bridge' ); ?></strong>
@@ -319,13 +341,23 @@ class Keoni_Bridge_Shortcode {
                                 </div>
                             <?php endif; ?>
                         </div>
-                    </details>
+                    </template>
 
                     <div class="keoni-matching__resume-actions keoni-matching__actions">
+                        <button type="button"
+                                class="keoni-matching__btn keoni-matching__btn--primary keoni-matching__btn--full"
+                                data-keoni-open-explain
+                                data-modal-title="<?php echo esc_attr( sprintf( __( 'Analyse -- %s', 'keoni-bridge' ), $name ) ); ?>">
+                            <?php esc_html_e( 'Analyser', 'keoni-bridge' ); ?>
+                        </button>
                         <?php if ( $resume_url ) : ?>
-                            <a class="keoni-matching__btn keoni-matching__btn--primary keoni-matching__btn--full" href="<?php echo esc_url( $resume_url ); ?>" target="_blank" rel="noopener">
+                            <button type="button"
+                                    class="keoni-matching__btn keoni-matching__btn--ghost keoni-matching__btn--full"
+                                    data-keoni-open-cv
+                                    data-cv-url="<?php echo esc_url( $resume_url ); ?>"
+                                    data-modal-title="<?php echo esc_attr( sprintf( __( 'CV -- %s', 'keoni-bridge' ), $name ) ); ?>">
                                 <?php esc_html_e( 'Voir le CV', 'keoni-bridge' ); ?>
-                            </a>
+                            </button>
                         <?php endif; ?>
                         <button type="button"
                                 class="keoni-matching__btn keoni-matching__btn--ghost keoni-matching__btn--full"
@@ -333,29 +365,11 @@ class Keoni_Bridge_Shortcode {
                                 data-cv-id="<?php echo esc_attr( $cv_id ); ?>"
                                 data-job-id="<?php echo esc_attr( $job_id ); ?>"
                                 data-nonce="<?php echo esc_attr( $extract_cv_nonce ); ?>"
+                                data-modal-title="<?php echo esc_attr( sprintf( __( 'CV extrait -- %s', 'keoni-bridge' ), $name ) ); ?>"
                                 data-default-text="<?php esc_attr_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>"
                                 data-loading-text="<?php esc_attr_e( 'Analyse...', 'keoni-bridge' ); ?>">
                             <?php esc_html_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>
                         </button>
-                        <div class="keoni-matching__structured" hidden></div>
-                        <div class="keoni-matching__actions-secondary">
-                            <?php if ( $profile_url ) : ?>
-                                <a class="keoni-matching__btn keoni-matching__btn--ghost" href="<?php echo esc_url( $profile_url ); ?>" target="_blank" rel="noopener">
-                                    <?php esc_html_e( 'Voir le profil candidat', 'keoni-bridge' ); ?>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ( $email_raw ) : ?>
-                                <a class="keoni-matching__btn keoni-matching__btn--ghost" href="mailto:<?php echo esc_attr( $email_raw ); ?>">
-                                    <?php esc_html_e( 'Envoyer un e-mail', 'keoni-bridge' ); ?>
-                                </a>
-                            <?php endif; ?>
-                            <?php if ( $location ) : ?>
-                                <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $location ); ?></span>
-                            <?php endif; ?>
-                            <?php if ( $salary ) : ?>
-                                <span class="keoni-matching__chip keoni-matching__chip--neutral"><?php echo esc_html( $salary ); ?></span>
-                            <?php endif; ?>
-                        </div>
                     </div>
                 </div>
             </article>
@@ -410,20 +424,16 @@ class Keoni_Bridge_Shortcode {
         return implode( ', ', $clean );
     }
 
-    // matching-api plafonne le score final par la couverture
-    // compétences/mots-clés (voir compute_final_score()/SKILL_CAP_FLOOR) :
-    // en pratique un très bon candidat dépasse rarement ~55-60/100, un
-    // seuil "score-high" à 80 n'est quasiment jamais atteint. Seuils
-    // recalibrés sur la distribution réelle observée en prod plutôt que
-    // sur une échelle 0-100 théorique jamais remplie.
-    const SCORE_VISUAL_MAX = 60.0;
-
+    // Seuils alignés sur AI Real-Time (scoreTone(), frontend/js/utils/format.js) :
+    // >=80 fort, >=60 moyen, en-dessous à vérifier -- demandé explicitement
+    // pour rester cohérent avec l'autre outil plutôt que sur une échelle
+    // recalibrée localement.
     private static function get_score_class( float $score ): string {
-        if ( $score >= 45 ) {
+        if ( $score > 80 ) {
             return 'score-high';
         }
 
-        if ( $score >= 25 ) {
+        if ( $score > 60 ) {
             return 'score-medium';
         }
 
@@ -431,15 +441,15 @@ class Keoni_Bridge_Shortcode {
     }
 
     private static function get_score_label( float $score ): string {
-        if ( $score >= 45 ) {
-            return __( 'Très bon profil', 'keoni-bridge' );
+        if ( $score > 80 ) {
+            return __( 'Fort', 'keoni-bridge' );
         }
 
-        if ( $score >= 25 ) {
-            return __( 'Profil à considérer', 'keoni-bridge' );
+        if ( $score > 60 ) {
+            return __( 'Moyen', 'keoni-bridge' );
         }
 
-        return __( 'Correspondance partielle', 'keoni-bridge' );
+        return __( 'À vérifier', 'keoni-bridge' );
     }
 
     private static function format_duration_ms( $duration_ms ): string {
