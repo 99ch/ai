@@ -189,8 +189,8 @@
 
 .keoni-matching__score.score-low,
 .keoni-matching__scorebar span.score-low {
-	background: #f3f4f6;
-	color: #4b5563;
+	background: #fef2f2;
+	color: #b91c1c;
 }
 
 .keoni-matching__score-qualifier {
@@ -208,7 +208,7 @@
 }
 
 .keoni-matching__score-qualifier.score-low {
-	color: #4b5563;
+	color: #b91c1c;
 }
 
 .keoni-matching__scorebar {
@@ -388,37 +388,33 @@
 	align-self: center;
 }
 
-.keoni-matching__btn--primary {
-	background: #0b1f4b;
-	color: #ffffff;
+/* !important sur les 2 variantes : ces boutons vivent aussi hors du
+   shortcode (myjobs.php, en-tête de viewjob.php) où le thème/Elementor
+   impose un style de bouton global (button{color:...}) qui gagnait
+   sinon la cascade -- constaté en prod, 'Job extrait' illisible en
+   blanc sur blanc (2026-09-23). */
+.keoni-matching__btn--primary,
+.keoni-matching__btn--primary:visited {
+	background: #0b1f4b !important;
+	color: #ffffff !important;
+	border-color: #0b1f4b !important;
 }
 
-.keoni-matching__resume-actions .keoni-matching__btn--primary,
-.keoni-matching__resume-actions .keoni-matching__btn--primary:visited,
-.keoni-matching__resume-actions .keoni-matching__btn--primary:hover,
-.keoni-matching__resume-actions .keoni-matching__btn--primary:focus-visible {
+.keoni-matching__btn--primary:hover,
+.keoni-matching__btn--primary:focus-visible {
+	background: #132a63 !important;
 	color: #ffffff !important;
 }
 
-.keoni-matching__btn--ghost {
-	border-color: #0b1f4b;
-	color: #0b1f4b;
-	background: #ffffff;
-}
-
-.keoni-matching__actions .keoni-matching__btn--ghost,
-.keoni-matching__actions .keoni-matching__btn--ghost:visited,
-.keoni-matching__actions button.keoni-matching__btn--ghost,
-.keoni-matching__actions button.keoni-matching__btn--ghost:visited {
+.keoni-matching__btn--ghost,
+.keoni-matching__btn--ghost:visited {
 	background-color: #ffffff !important;
 	color: #0b1f4b !important;
 	border-color: #0b1f4b !important;
 }
 
-.keoni-matching__actions .keoni-matching__btn--ghost:hover,
-.keoni-matching__actions .keoni-matching__btn--ghost:focus-visible,
-.keoni-matching__actions button.keoni-matching__btn--ghost:hover,
-.keoni-matching__actions button.keoni-matching__btn--ghost:focus-visible {
+.keoni-matching__btn--ghost:hover,
+.keoni-matching__btn--ghost:focus-visible {
 	background-color: #0b1f4b !important;
 	color: #ffffff !important;
 	border-color: #0b1f4b !important;
