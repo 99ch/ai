@@ -16,6 +16,13 @@ class Keoni_Bridge_Repository {
         $config_model   = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'configuration' ) : null;
         $data_directory = $config_model ? $config_model->getConfigurationByConfigName( 'data_directory' ) : '';
         $uploads        = wp_get_upload_dir();
+        // WordPress renvoie parfois baseurl en http:// même quand le site
+        // est servi en https (siteurl en base, ou proxy TLS en amont dont
+        // WP n'a pas conscience) : une iframe https chargeant une ressource
+        // http est bloquée par le navigateur (contenu mixte actif), en
+        // silence -- observé en prod, "Voir le CV" ouvrait une modale
+        // vide sans la moindre erreur console (2026-09-23).
+        $uploads['baseurl'] = set_url_scheme( $uploads['baseurl'], 'https' );
 
         if ( empty( $uploads['baseurl'] ) || empty( $data_directory ) ) {
             return '';
@@ -396,6 +403,13 @@ class Keoni_Bridge_Repository {
         $config_model = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'configuration' ) : null;
         $data_directory = $config_model ? $config_model->getConfigurationByConfigName( 'data_directory' ) : '';
         $uploads        = wp_get_upload_dir();
+        // WordPress renvoie parfois baseurl en http:// même quand le site
+        // est servi en https (siteurl en base, ou proxy TLS en amont dont
+        // WP n'a pas conscience) : une iframe https chargeant une ressource
+        // http est bloquée par le navigateur (contenu mixte actif), en
+        // silence -- observé en prod, "Voir le CV" ouvrait une modale
+        // vide sans la moindre erreur console (2026-09-23).
+        $uploads['baseurl'] = set_url_scheme( $uploads['baseurl'], 'https' );
         $default_avatar = defined( 'JSJOBS_PLUGIN_URL' ) ? JSJOBS_PLUGIN_URL . 'includes/images/users.png' : '';
         $resume_page_id = class_exists( 'jsjobs' ) ? jsjobs::getPageid() : 0;
 
@@ -530,6 +544,13 @@ class Keoni_Bridge_Repository {
         $config_model   = class_exists( 'JSJOBSincluder' ) ? JSJOBSincluder::getJSModel( 'configuration' ) : null;
         $data_directory = $config_model ? $config_model->getConfigurationByConfigName( 'data_directory' ) : '';
         $uploads        = wp_get_upload_dir();
+        // WordPress renvoie parfois baseurl en http:// même quand le site
+        // est servi en https (siteurl en base, ou proxy TLS en amont dont
+        // WP n'a pas conscience) : une iframe https chargeant une ressource
+        // http est bloquée par le navigateur (contenu mixte actif), en
+        // silence -- observé en prod, "Voir le CV" ouvrait une modale
+        // vide sans la moindre erreur console (2026-09-23).
+        $uploads['baseurl'] = set_url_scheme( $uploads['baseurl'], 'https' );
         $default_avatar = defined( 'JSJOBS_PLUGIN_URL' ) ? JSJOBS_PLUGIN_URL . 'includes/images/users.png' : '';
         $resume_page_id = class_exists( 'jsjobs' ) ? jsjobs::getPageid() : 0;
 

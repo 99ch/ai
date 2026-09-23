@@ -643,22 +643,28 @@
 	color: #0f172a;
 }
 
+/* !important : même reset de bouton global du thème que .keoni-matching__btn
+   (padding 0.6em 1em 0.4em observé) qui doublait la taille du bouton de
+   fermeture (56px de large au lieu de 28px) sans le casser visuellement --
+   silencieux, remarqué seulement en vérifiant la position du clic. */
 .keoni-matching-modal__close {
-	appearance: none;
-	border: none;
-	background: #f1f5f9;
-	color: #334155;
-	width: 28px;
-	height: 28px;
-	border-radius: 999px;
-	font-size: 18px;
-	line-height: 1;
-	cursor: pointer;
-	flex-shrink: 0;
+	appearance: none !important;
+	border: none !important;
+	background: #f1f5f9 !important;
+	color: #334155 !important;
+	width: 28px !important;
+	height: 28px !important;
+	padding: 0 !important;
+	box-sizing: border-box !important;
+	border-radius: 999px !important;
+	font-size: 18px !important;
+	line-height: 1 !important;
+	cursor: pointer !important;
+	flex-shrink: 0 !important;
 }
 
 .keoni-matching-modal__close:hover {
-	background: #e2e8f0;
+	background: #e2e8f0 !important;
 }
 
 .keoni-matching-modal__body {
