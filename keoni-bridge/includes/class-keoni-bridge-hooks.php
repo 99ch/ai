@@ -100,6 +100,15 @@ class Keoni_Bridge_Hooks {
             wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
         }
 
+        // Purge les résultats d'un run précédent avant d'en déclencher un
+        // nouveau : store_matching() ne fait qu'un REPLACE par candidat
+        // reçu, donc un candidat absent du nouveau run (pool retenu par
+        // n8n différent d'un run à l'autre) restait sinon affiché
+        // indéfiniment avec un score/rang obsolète -- observé en prod avec
+        // plusieurs candidats affichant "Rang #1" simultanément, chacun
+        // issu d'un run distinct jamais nettoyé.
+        Keoni_Bridge_Repository::delete_matching_results( $job_id );
+
         if ( ! $this->trigger_webhook( $job_id, get_current_user_id() ) ) {
             wp_send_json_error( [ 'message' => __( 'Impossible de contacter le webhook IA.', 'keoni-bridge' ) ], 500 );
         }
