@@ -239,7 +239,10 @@ class Keoni_Bridge_Shortcode {
             // voir compute_final_score() -- app/scoring.py) mais jamais
             // affiché jusqu'ici : un score par composante, dans la modale
             // "Analyser", comme le "Détail des scores" d'AI Real-Time.
-            $score_breakdown = (array) ( $item['extra']['score_breakdown'] ?? [] );
+            $score_breakdown  = (array) ( $item['extra']['score_breakdown'] ?? [] );
+            $breakdown_badge  = (string) ( $item['extra']['cv_category'] ?? '' );
+            $excerpts_cv      = (array) ( $item['extra']['excerpts_cv'] ?? [] );
+            $excerpts_job     = (array) ( $item['extra']['excerpts_job'] ?? [] );
 
             $score_label   = self::get_score_label( $score );
             $score_percent = max( 0, min( 100, $score ) );
@@ -375,9 +378,28 @@ class Keoni_Bridge_Shortcode {
                             </div>
                         </div>
 
+                        <?php if ( ! empty( $excerpts_cv ) || ! empty( $excerpts_job ) ) : ?>
+                            <div class="keoni-matching__section keoni-matching__section--excerpts">
+                                <div class="keoni-matching__section-label"><?php esc_html_e( 'Extraits représentatifs', 'keoni-bridge' ); ?></div>
+                                <ul class="keoni-matching__list">
+                                    <?php foreach ( $excerpts_cv as $excerpt ) : ?>
+                                        <li><strong>CV:</strong> <?php echo esc_html( $excerpt ); ?></li>
+                                    <?php endforeach; ?>
+                                    <?php foreach ( $excerpts_job as $excerpt ) : ?>
+                                        <li><strong><?php esc_html_e( 'Offre:', 'keoni-bridge' ); ?></strong> <?php echo esc_html( $excerpt ); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            </div>
+                        <?php endif; ?>
+
                         <?php if ( ! empty( $score_breakdown ) ) : ?>
                             <div class="keoni-matching__section keoni-matching__section--breakdown">
-                                <div class="keoni-matching__section-label"><?php esc_html_e( 'Détail des scores', 'keoni-bridge' ); ?></div>
+                                <div class="keoni-matching__section-label">
+                                    <?php esc_html_e( 'Détail des scores', 'keoni-bridge' ); ?>
+                                    <?php if ( $breakdown_badge ) : ?>
+                                        <span class="keoni-matching__chip keoni-matching__chip--neutral keoni-matching__breakdown-badge"><?php echo esc_html( $breakdown_badge ); ?></span>
+                                    <?php endif; ?>
+                                </div>
                                 <div class="keoni-matching__score-breakdown">
                                     <?php foreach ( self::get_score_breakdown_labels() as $key => $label ) : ?>
                                         <?php
@@ -497,20 +519,21 @@ class Keoni_Bridge_Shortcode {
         return 'score-low';
     }
 
-    // Libellés FR des clés du breakdown de compute_final_score()
-    // (app/scoring.py) -- toutes ne sont pas forcément présentes pour un
-    // candidat donné (composante sans signal exploitable pour ce couple
-    // offre/CV, voir low_confidence_components).
+    // Ordre et libellés exacts demandés par l'utilisateur (Compétences,
+    // Sémantique, Expérience, Contrat, MotsClés prio -- calqués sur
+    // "Détail des scores" chez AI Real-Time). Formation/Langues de leur
+    // liste n'ont pas d'équivalent : compute_final_score() (app/scoring.py)
+    // n'a pas de composante education/niveau de langue, voir le commentaire
+    // sur DEFAULT_WEIGHTS -- pas fabriqué faute de donnée réelle.
+    // category/location/salary/qualification existent dans le breakdown
+    // mais restent hors de cette liste précise, volontairement.
     private static function get_score_breakdown_labels(): array {
         return [
-            'semantic'      => __( 'Sémantique', 'keoni-bridge' ),
-            'skills'        => __( 'Compétences', 'keoni-bridge' ),
-            'experience'    => __( 'Expérience', 'keoni-bridge' ),
-            'jobtype'       => __( 'Type de contrat', 'keoni-bridge' ),
-            'category'      => __( 'Catégorie', 'keoni-bridge' ),
-            'location'      => __( 'Localisation', 'keoni-bridge' ),
-            'salary'        => __( 'Salaire', 'keoni-bridge' ),
-            'qualification' => __( 'Qualification', 'keoni-bridge' ),
+            'skills'     => __( 'Compétences', 'keoni-bridge' ),
+            'semantic'   => __( 'Sémantique', 'keoni-bridge' ),
+            'experience' => __( 'Expérience', 'keoni-bridge' ),
+            'jobtype'    => __( 'Contrat', 'keoni-bridge' ),
+            'keywords'   => __( 'MotsClés prio', 'keoni-bridge' ),
         ];
     }
 

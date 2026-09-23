@@ -567,10 +567,6 @@
 		align-items: stretch;
 	}
 
-	.keoni-matching__section-grid {
-		grid-template-columns: repeat(2, minmax(0, 1fr));
-	}
-
 	.keoni-matching-kpis__grid {
 		grid-template-columns: repeat(5, minmax(0, 1fr));
 	}
@@ -857,6 +853,15 @@
 
 .keoni-matching-modal__body .keoni-matching__list li {
 	color: #8b91aa;
+}
+
+.keoni-matching-modal__body .keoni-matching__section--excerpts .keoni-matching__list li strong {
+	color: #e8eaf4;
+}
+
+.keoni-matching__breakdown-badge {
+	font-size: 11px;
+	padding: 2px 8px;
 }
 
 .keoni-matching-modal__body .keoni-matching__muted {
