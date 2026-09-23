@@ -204,6 +204,18 @@ class Keoni_Bridge_Rest {
         $where  = [ 'r.status = 1', 'r.searchable = 1' ];
         $params = [];
 
+        $ids_param = sanitize_text_field( (string) $request->get_param( 'ids' ) );
+        if ( '' !== $ids_param ) {
+            $ids = array_values( array_unique( array_filter( array_map( 'absint', explode( ',', $ids_param ) ) ) ) );
+            if ( ! empty( $ids ) ) {
+                $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+                $where[]      = "r.id IN ({$placeholders})";
+                foreach ( $ids as $id ) {
+                    $params[] = $id;
+                }
+            }
+        }
+
         $application_title = sanitize_text_field( (string) $request->get_param( 'application_title' ) );
         if ( '' !== $application_title ) {
             $where[]  = 'r.application_title LIKE %s';
@@ -318,9 +330,16 @@ class Keoni_Bridge_Rest {
         $join_sql  = empty( $joins ) ? '' : ( "\n" . implode( "\n", array_unique( $joins ) ) );
         $where_sql = implode( ' AND ', $where );
 
-        $query = "SELECT r.*, d.text_content AS cv_text_content, d.metadata AS cv_metadata
+        $query = "SELECT r.*, d.text_content AS cv_text_content, d.metadata AS cv_metadata, resumefile.filename AS resume_filename
                  FROM {$resume_table} r
                  LEFT JOIN {$cv_table} d ON d.candidate_email = r.email_address
+                 LEFT JOIN (
+                     SELECT f.resumeid, f.filename
+                     FROM {$wpdb->prefix}js_job_resumefiles AS f
+                     INNER JOIN (
+                         SELECT resumeid, MAX(id) AS max_id FROM {$wpdb->prefix}js_job_resumefiles GROUP BY resumeid
+                     ) AS latest ON latest.resumeid = f.resumeid AND latest.max_id = f.id
+                 ) AS resumefile ON resumefile.resumeid = r.id
                  {$join_sql}
                  WHERE {$where_sql}
                  GROUP BY r.id
@@ -558,6 +577,7 @@ class Keoni_Bridge_Rest {
             'experience'  => absint( $resume['experienceid'] ?? 0 ),
             'skills'      => wp_strip_all_tags( $resume['skills'] ?? '' ),
             'resume'      => wp_kses_post( $resume['resume'] ?? '' ),
+            'file_path'   => Keoni_Bridge_Repository::build_resume_file_url( absint( $resume['id'] ?? 0 ), (string) ( $resume['resume_filename'] ?? '' ) ),
             'text_content'=> $this->build_resume_text_content( $resume ),
             'metadata'    => $this->normalize_cv_metadata( $resume['cv_metadata'] ?? '' ),
             'updated_at'  => $this->resume_updated_at( $resume ),
