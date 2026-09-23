@@ -397,7 +397,7 @@ class Keoni_Bridge_Shortcode {
                         <button type="button"
                                 class="keoni-matching__btn keoni-matching__btn--primary keoni-matching__btn--full"
                                 data-keoni-open-explain
-                                data-modal-title="<?php echo esc_attr( sprintf( __( 'Analyse de la correspondance -- %s', 'keoni-bridge' ), $name ) ); ?>">
+                                data-modal-title="<?php echo esc_attr( sprintf( __( 'Analyse de la correspondance : %s', 'keoni-bridge' ), $name ) ); ?>">
                             <?php esc_html_e( 'Analyser', 'keoni-bridge' ); ?>
                         </button>
                         <?php if ( $resume_url ) : ?>
@@ -405,7 +405,7 @@ class Keoni_Bridge_Shortcode {
                                     class="keoni-matching__btn keoni-matching__btn--ghost keoni-matching__btn--full"
                                     data-keoni-open-cv
                                     data-cv-url="<?php echo esc_url( $resume_url ); ?>"
-                                    data-modal-title="<?php echo esc_attr( sprintf( __( 'CV -- %s', 'keoni-bridge' ), $name ) ); ?>">
+                                    data-modal-title="<?php echo esc_attr( sprintf( __( 'CV : %s', 'keoni-bridge' ), $name ) ); ?>">
                                 <?php esc_html_e( 'Voir le CV', 'keoni-bridge' ); ?>
                             </button>
                         <?php endif; ?>
@@ -415,7 +415,7 @@ class Keoni_Bridge_Shortcode {
                                 data-cv-id="<?php echo esc_attr( $cv_id ); ?>"
                                 data-job-id="<?php echo esc_attr( $job_id ); ?>"
                                 data-nonce="<?php echo esc_attr( $extract_cv_nonce ); ?>"
-                                data-modal-title="<?php echo esc_attr( sprintf( __( 'CV extrait -- %s', 'keoni-bridge' ), $name ) ); ?>"
+                                data-modal-title="<?php echo esc_attr( sprintf( __( 'CV extrait : %s', 'keoni-bridge' ), $name ) ); ?>"
                                 data-default-text="<?php esc_attr_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>"
                                 data-loading-text="<?php esc_attr_e( 'Analyse...', 'keoni-bridge' ); ?>">
                             <?php esc_html_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>

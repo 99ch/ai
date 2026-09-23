@@ -357,15 +357,9 @@
 	gap: 12px;
 }
 
-.keoni-matching__explain-score {
-	font-size: 15px;
-	min-width: 64px;
-	padding: 6px 12px;
-}
-
 .keoni-matching__explain-tone {
-	font-size: 16px;
-	font-weight: 700;
+	font-size: 17px;
+	font-weight: 600;
 }
 
 .keoni-matching__explain-tone.score-high { color: #166534; }
@@ -373,7 +367,7 @@
 .keoni-matching__explain-tone.score-low { color: #b91c1c; }
 
 .keoni-matching__explain-subtitle {
-	font-size: 12px;
+	font-size: 13px;
 	color: #64748b;
 }
 
@@ -712,13 +706,21 @@
 	backdrop-filter: blur(2px);
 }
 
+/* Thème sombre exact d'AI Real-Time (rhconsole.benin-digital.app), valeurs
+   extraites en direct depuis la page (2026-09-23) -- couleurs/tailles/
+   espacements copiés au pixel près plutôt que reconstitués de mémoire, sur
+   demande explicite de rester identique à leur modale "Analyser", pas
+   juste une structure similaire dans le thème clair du site. Scopé au
+   backdrop/carte de la modale uniquement : le reste du site WP (cartes
+   candidats etc.) reste inchangé, en clair. */
 .keoni-matching-modal__card {
 	position: relative;
 	z-index: 1;
-	background: #fff;
-	border: 1px solid #e2e8f0;
-	border-radius: 14px;
-	box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+	background: #161925;
+	border: 1px solid rgba(255, 255, 255, 0.09);
+	border-radius: 16px;
+	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+	color: #e8eaf4;
 	width: 100%;
 	max-width: 720px;
 	max-height: calc(100dvh - 32px);
@@ -731,32 +733,28 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-	padding: 16px 20px;
-	border-bottom: 1px solid #e2e8f0;
+	padding: 20px 24px;
+	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 	flex-shrink: 0;
 }
 
 .keoni-matching-modal__title {
 	margin: 0;
-	font-size: 15px;
-	font-weight: 700;
-	color: #0f172a;
+	font-size: 17px;
+	font-weight: 600;
+	color: #e8eaf4;
 }
 
-/* !important : même reset de bouton global du thème que .keoni-matching__btn
-   (padding 0.6em 1em 0.4em observé) qui doublait la taille du bouton de
-   fermeture (56px de large au lieu de 28px) sans le casser visuellement --
-   silencieux, remarqué seulement en vérifiant la position du clic. */
 .keoni-matching-modal__close {
 	appearance: none !important;
 	border: none !important;
-	background: #f1f5f9 !important;
-	color: #334155 !important;
+	background: transparent !important;
+	color: #8b91aa !important;
 	width: 28px !important;
 	height: 28px !important;
 	padding: 0 !important;
 	box-sizing: border-box !important;
-	border-radius: 999px !important;
+	border-radius: 8px !important;
 	font-size: 18px !important;
 	line-height: 1 !important;
 	cursor: pointer !important;
@@ -764,24 +762,98 @@
 }
 
 .keoni-matching-modal__close:hover {
-	background: #e2e8f0 !important;
+	background: rgba(255, 255, 255, 0.08) !important;
+	color: #e8eaf4 !important;
 }
 
 .keoni-matching-modal__body {
-	padding: 20px;
+	padding: 24px;
 	overflow-y: auto;
 	flex: 1 1 auto;
 	min-height: 0;
 	display: flex;
 	flex-direction: column;
-	gap: 14px;
+	gap: 20px;
+	color: #e8eaf4;
+	font-size: 13px;
 }
 
 .keoni-matching-modal__body iframe {
 	width: 100%;
 	height: min(70dvh, 800px);
-	border: 1px solid #e2e8f0;
+	border: 1px solid rgba(255, 255, 255, 0.09);
 	border-radius: 8px;
+	background: #fff;
+}
+
+/* Composants partagés avec les cartes candidats (score, listes, mots-clés,
+   texte extrait) réutilisés tels quels dans la modale, mais celle-ci est
+   sombre : surcharge scopée à .keoni-matching-modal__body uniquement,
+   n'affecte pas leur apparence sur les cartes en dehors de la modale. */
+.keoni-matching-modal__body .keoni-matching__explain-tone {
+	color: #e8eaf4 !important;
+}
+
+.keoni-matching-modal__body .keoni-matching__explain-subtitle {
+	color: #8b91aa;
+}
+
+.keoni-matching-modal__body .keoni-matching__scorebar,
+.keoni-matching-modal__body .keoni-matching__score-breakdown-bar {
+	background: rgba(255, 255, 255, 0.05);
+	height: 4px;
+}
+
+.keoni-matching-modal__body .keoni-matching__score-breakdown-label {
+	color: #8b91aa;
+}
+
+.keoni-matching-modal__body .keoni-matching__score-breakdown-value {
+	color: #e8eaf4;
+}
+
+.keoni-matching-modal__body .keoni-matching__section {
+	border: none;
+	background: transparent;
+	padding: 0;
+}
+
+.keoni-matching-modal__body .keoni-matching__section-label {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	color: #4e5368;
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.66px;
+	text-transform: uppercase;
+	margin: 0 0 12px;
+}
+
+.keoni-matching-modal__body .keoni-matching__section-label::before,
+.keoni-matching-modal__body .keoni-matching__section-label::after {
+	content: "";
+	flex: 1 1 0%;
+	height: 1px;
+	background: rgba(255, 255, 255, 0.06);
+}
+
+.keoni-matching-modal__body .keoni-matching__list li {
+	color: #8b91aa;
+}
+
+.keoni-matching-modal__body .keoni-matching__muted {
+	color: #4e5368;
+}
+
+.keoni-matching-modal__body .keoni-matching__structured-text {
+	color: #8b91aa;
+}
+
+.keoni-matching-modal__body .keoni-matching__resume-keywords span {
+	background: rgba(255, 255, 255, 0.06);
+	color: #8b91aa;
+	border-color: rgba(255, 255, 255, 0.09);
 }
 
 @media (max-width: 640px) {
