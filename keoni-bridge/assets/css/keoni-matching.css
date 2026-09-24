@@ -718,21 +718,18 @@
 	backdrop-filter: blur(2px);
 }
 
-/* Thème sombre exact d'AI Real-Time (rhconsole.benin-digital.app), valeurs
-   extraites en direct depuis la page (2026-09-23) -- couleurs/tailles/
-   espacements copiés au pixel près plutôt que reconstitués de mémoire, sur
-   demande explicite de rester identique à leur modale "Analyser", pas
-   juste une structure similaire dans le thème clair du site. Scopé au
-   backdrop/carte de la modale uniquement : le reste du site WP (cartes
-   candidats etc.) reste inchangé, en clair. */
+/* Thème clair (blanc) de la modale "Analyser" / "Voir le CV" / "Voir le CV
+   extrait" / "Job extrait" -- même structure que la modale sombre portée
+   d'AI Real-Time, mais recolorée en clair pour rester cohérente avec le
+   reste du site WP (demande explicite, 2026-09-24). */
 .keoni-matching-modal__card {
 	position: relative;
 	z-index: 1;
-	background: #161925;
-	border: 1px solid rgba(255, 255, 255, 0.09);
+	background: #ffffff;
+	border: 1px solid #e2e8f0;
 	border-radius: 16px;
-	box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
-	color: #e8eaf4;
+	box-shadow: 0 16px 48px rgba(15, 23, 42, 0.18);
+	color: #0f172a;
 	width: 100%;
 	max-width: 720px;
 	max-height: calc(100dvh - 32px);
@@ -746,7 +743,7 @@
 	justify-content: space-between;
 	gap: 12px;
 	padding: 20px 24px;
-	border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+	border-bottom: 1px solid #e2e8f0;
 	flex-shrink: 0;
 }
 
@@ -754,14 +751,14 @@
 	margin: 0;
 	font-size: 17px;
 	font-weight: 600;
-	color: #e8eaf4;
+	color: #0f172a;
 }
 
 .keoni-matching-modal__close {
 	appearance: none !important;
 	border: none !important;
 	background: transparent !important;
-	color: #8b91aa !important;
+	color: #64748b !important;
 	width: 28px !important;
 	height: 28px !important;
 	padding: 0 !important;
@@ -774,8 +771,8 @@
 }
 
 .keoni-matching-modal__close:hover {
-	background: rgba(255, 255, 255, 0.08) !important;
-	color: #e8eaf4 !important;
+	background: #f1f5f9 !important;
+	color: #0f172a !important;
 }
 
 .keoni-matching-modal__body {
@@ -786,43 +783,39 @@
 	display: flex;
 	flex-direction: column;
 	gap: 20px;
-	color: #e8eaf4;
+	color: #0f172a;
 	font-size: 13px;
 }
 
 .keoni-matching-modal__body iframe {
 	width: 100%;
 	height: min(70dvh, 800px);
-	border: 1px solid rgba(255, 255, 255, 0.09);
+	border: 1px solid #e2e8f0;
 	border-radius: 8px;
 	background: #fff;
 }
 
 /* Composants partagés avec les cartes candidats (score, listes, mots-clés,
-   texte extrait) réutilisés tels quels dans la modale, mais celle-ci est
-   sombre : surcharge scopée à .keoni-matching-modal__body uniquement,
-   n'affecte pas leur apparence sur les cartes en dehors de la modale. */
-.keoni-matching-modal__body .keoni-matching__explain-tone {
-	color: #e8eaf4 !important;
-}
-
+   texte extrait) réutilisés tels quels dans la modale : surcharge scopée à
+   .keoni-matching-modal__body uniquement, n'affecte pas leur apparence sur
+   les cartes en dehors de la modale. */
 .keoni-matching-modal__body .keoni-matching__explain-subtitle,
 .keoni-matching-modal__body .keoni-matching__explain-text {
-	color: #8b91aa;
+	color: #64748b;
 }
 
 .keoni-matching-modal__body .keoni-matching__scorebar,
 .keoni-matching-modal__body .keoni-matching__score-breakdown-bar {
-	background: rgba(255, 255, 255, 0.05);
+	background: #e5e7eb;
 	height: 4px;
 }
 
 .keoni-matching-modal__body .keoni-matching__score-breakdown-label {
-	color: #8b91aa;
+	color: #64748b;
 }
 
 .keoni-matching-modal__body .keoni-matching__score-breakdown-value {
-	color: #e8eaf4;
+	color: #334155;
 }
 
 .keoni-matching-modal__body .keoni-matching__section {
@@ -835,7 +828,7 @@
 	display: flex;
 	align-items: center;
 	gap: 12px;
-	color: #4e5368;
+	color: #64748b;
 	font-size: 11px;
 	font-weight: 500;
 	letter-spacing: 0.66px;
@@ -848,15 +841,15 @@
 	content: "";
 	flex: 1 1 0%;
 	height: 1px;
-	background: rgba(255, 255, 255, 0.06);
+	background: #e2e8f0;
 }
 
 .keoni-matching-modal__body .keoni-matching__list li {
-	color: #8b91aa;
+	color: #334155;
 }
 
 .keoni-matching-modal__body .keoni-matching__section--excerpts .keoni-matching__list li strong {
-	color: #e8eaf4;
+	color: #0f172a;
 }
 
 .keoni-matching__breakdown-badge {
@@ -865,17 +858,17 @@
 }
 
 .keoni-matching-modal__body .keoni-matching__muted {
-	color: #4e5368;
+	color: #94a3b8;
 }
 
 .keoni-matching-modal__body .keoni-matching__structured-text {
-	color: #8b91aa;
+	color: #334155;
 }
 
 .keoni-matching-modal__body .keoni-matching__resume-keywords span {
-	background: rgba(255, 255, 255, 0.06);
-	color: #8b91aa;
-	border-color: rgba(255, 255, 255, 0.09);
+	background: #eef2ff;
+	color: #3730a3;
+	border-color: #c7d2fe;
 }
 
 @media (max-width: 640px) {
