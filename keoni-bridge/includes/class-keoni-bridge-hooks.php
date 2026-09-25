@@ -136,11 +136,22 @@ class Keoni_Bridge_Hooks {
         $status      = Keoni_Bridge_Repository::get_matching_status( $job_id );
         $last_updated = $status['last_updated'] ?? '';
         $total        = (int) ( $status['total'] ?? 0 );
-        $last_ts      = $last_updated ? strtotime( $last_updated ) : 0;
-        $complete     = $total > 0 && $last_ts > 0;
+
+        // Le workflow n8n écrit les résultats lot par lot au fil de l'eau
+        // (Store Results A/B/Single) -- le premier lot stocké ne veut pas
+        // dire que le matching est fini, seulement que le premier lot l'est.
+        // Le vrai signal de fin est l'appel à /matching-kpi (nœud "Store
+        // Final KPI"), déclenché une seule fois, après la fusion de tous
+        // les lots parallèles. Sans ça, le frontend affichait "terminé"
+        // dès l'arrivée du premier lot alors que n8n continuait de tourner
+        // en arrière-plan (constaté en prod : toujours "(10)", le compte
+        // du tout premier lot, jamais le total réel).
+        $kpi     = Keoni_Bridge_Repository::get_workflow_kpi( $job_id );
+        $kpi_ts  = ! empty( $kpi['updated_at'] ) ? strtotime( $kpi['updated_at'] ) : 0;
+        $complete = $kpi_ts > 0;
 
         if ( $complete && $started_at > 0 ) {
-            $complete = $last_ts >= $started_at;
+            $complete = $kpi_ts >= $started_at;
         }
 
         wp_send_json_success( [
