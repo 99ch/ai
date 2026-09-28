@@ -70,8 +70,9 @@ class Keoni_Bridge_Shortcode {
         $qualified_count = (int) ( $kpis['qualified_count'] ?? 0 );
         $candidates_count = (int) ( $kpis['candidates_count'] ?? 0 );
         $qualified_label = number_format_i18n( $qualified_count ) . ' / ' . number_format_i18n( $candidates_count );
-        $extract_cv_nonce = wp_create_nonce( 'keoni_bridge_extract_cv' );
-        $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce );
+        $extract_cv_nonce     = wp_create_nonce( 'keoni_bridge_extract_cv' );
+        $extract_cv_pdf_nonce = wp_create_nonce( 'keoni_bridge_extract_cv_pdf' );
+        $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce, $extract_cv_pdf_nonce );
         $nonce       = wp_create_nonce( 'keoni_matching' );
         $reset_nonce = wp_create_nonce( 'keoni_bridge_reset_matching' );
 
@@ -169,7 +170,7 @@ class Keoni_Bridge_Shortcode {
         wp_enqueue_script( $this->script_handle );
     }
 
-    public static function render_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [], int $job_id = 0, string $extract_cv_nonce = '' ): string {
+    public static function render_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [], int $job_id = 0, string $extract_cv_nonce = '', string $extract_cv_pdf_nonce = '' ): string {
         $default_avatar = defined( 'JSJOBS_PLUGIN_URL' ) ? JSJOBS_PLUGIN_URL . 'includes/images/users.png' : '';
         $date_format    = get_option( 'date_format', 'Y-m-d' );
 
@@ -448,6 +449,17 @@ class Keoni_Bridge_Shortcode {
                                 data-default-text="<?php esc_attr_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>"
                                 data-loading-text="<?php esc_attr_e( 'Analyse...', 'keoni-bridge' ); ?>">
                             <?php esc_html_e( 'Voir le CV extrait', 'keoni-bridge' ); ?>
+                        </button>
+                        <button type="button"
+                                class="keoni-matching__btn keoni-matching__btn--ghost keoni-matching__btn--full"
+                                data-keoni-extract-cv-pdf
+                                data-cv-id="<?php echo esc_attr( $cv_id ); ?>"
+                                data-job-id="<?php echo esc_attr( $job_id ); ?>"
+                                data-nonce="<?php echo esc_attr( $extract_cv_pdf_nonce ); ?>"
+                                data-modal-title="<?php echo esc_attr( sprintf( __( 'PDF structuré : %s', 'keoni-bridge' ), $name ) ); ?>"
+                                data-default-text="<?php esc_attr_e( 'PDF structuré', 'keoni-bridge' ); ?>"
+                                data-loading-text="<?php esc_attr_e( 'Génération...', 'keoni-bridge' ); ?>">
+                            <?php esc_html_e( 'PDF structuré', 'keoni-bridge' ); ?>
                         </button>
                     </div>
                 </div>
