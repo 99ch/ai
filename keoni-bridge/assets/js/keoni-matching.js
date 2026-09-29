@@ -402,6 +402,7 @@
 					var template2 = document.createElement('template');
 					template2.innerHTML = data.html.trim();
 					list2.appendChild(template2.content);
+					list2.dispatchEvent(new Event('keoni-matching:cards-appended', { bubbles: true }));
 					if (data.has_more) {
 						loadMoreButton.dataset.offset = String(data.next_offset != null ? data.next_offset : (offset + limit));
 						loadMoreButton.dataset.limit = String(data.limit != null ? data.limit : limit);
@@ -422,4 +423,70 @@
 		var els = getModalEls();
 		if (els && !els.modal.hidden) closeModal();
 	});
+})();
+
+// Filtre live par score minimum : purement côté client (aucun aller-retour
+// serveur), applique/enlève une classe qui masque les cartes déjà présentes
+// dans le DOM en fonction de leur data-score. Une IIFE séparée de celle
+// ci-dessus (au lieu d'y être insérée) pour rester lisible sans reformater
+// le bloc dense existant.
+(function () {
+    function updateFilter(wrapper) {
+        var slider = wrapper.querySelector('[data-keoni-score-slider]');
+        if (!slider) {
+            return;
+        }
+
+        var valueLabel = wrapper.querySelector('[data-keoni-score-value]');
+        var countLabel = wrapper.querySelector('[data-keoni-score-count]');
+        var emptyState = wrapper.querySelector('[data-keoni-score-empty]');
+        var minScore = parseFloat(slider.value) || 0;
+
+        if (valueLabel) {
+            valueLabel.textContent = String(Math.round(minScore));
+        }
+
+        var cards = wrapper.querySelectorAll('.keoni-matching__card');
+        var visibleCount = 0;
+
+        cards.forEach(function (card) {
+            var score = parseFloat(card.dataset.score || '0');
+            var visible = score >= minScore;
+            card.classList.toggle('keoni-matching__card--filtered-out', !visible);
+            if (visible) {
+                visibleCount++;
+            }
+        });
+
+        if (countLabel) {
+            countLabel.textContent = cards.length ? (visibleCount + ' / ' + cards.length) : '';
+        }
+
+        if (emptyState) {
+            emptyState.hidden = cards.length === 0 || visibleCount > 0;
+        }
+    }
+
+    document.addEventListener('input', function (event) {
+        var slider = event.target.closest('[data-keoni-score-slider]');
+        if (!slider) {
+            return;
+        }
+        var wrapper = slider.closest('.keoni-matching-wrapper');
+        if (wrapper) {
+            updateFilter(wrapper);
+        }
+    });
+
+    // "Afficher plus" charge de nouvelles cartes en AJAX après coup --
+    // leur appliquer le seuil actuellement choisi, pas seulement celles
+    // présentes au premier rendu (voir le dispatchEvent ajouté ci-dessus).
+    document.addEventListener('keoni-matching:cards-appended', function (event) {
+        var wrapper = event.target.closest ? event.target.closest('.keoni-matching-wrapper') : null;
+        if (wrapper) {
+            updateFilter(wrapper);
+        }
+    });
+
+    document.querySelectorAll('.keoni-matching-wrapper').forEach(updateFilter);
 })();
