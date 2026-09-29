@@ -237,17 +237,24 @@ class Keoni_Bridge_Rest {
         $offset = absint( $request->get_param( 'offset' ) );
         $limit  = min( 1000, max( 1, absint( $request->get_param( 'limit' ) ) ) );
         $table  = $wpdb->prefix . 'js_job_jobs';
-        $now    = current_time( 'timestamp', true );
 
+        // `status` (pas `jobstatus`, qui est l'étape du pipeline RH --
+        // Sourcing/Interviewing/Closed to New Applicants, voir
+        // js-jobs/includes/tables/jobstatus.php) est le champ que le
+        // plugin JS-Jobs lui-même utilise pour son propre listing public
+        // (js-jobs/modules/job/model.php: "WHERE job.status = 1 AND
+        // DATE(job.startpublishing) <= CURDATE() AND
+        // DATE(job.stoppublishing) >= CURDATE()") -- même filtre ici,
+        // vérifié contre une offre réelle en prod (jobstatus y valait 0,
+        // status valait 1).
         $rows = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT id, modified, created FROM {$table}
-                 WHERE jobstatus = 1 AND startpublishing <= %s
-                   AND (stoppublishing = '0000-00-00 00:00:00' OR stoppublishing >= %s)
+                 WHERE status = 1
+                   AND DATE(startpublishing) <= CURDATE()
+                   AND DATE(stoppublishing) >= CURDATE()
                  ORDER BY id ASC
                  LIMIT %d OFFSET %d",
-                gmdate( 'Y-m-d H:i:s', $now ),
-                gmdate( 'Y-m-d H:i:s', $now ),
                 $limit,
                 $offset
             ),
