@@ -97,6 +97,30 @@ class Keoni_Bridge_Rest {
                     'sanitize_callback' => 'sanitize_text_field',
                     'default'           => '',
                 ],
+                // Scoring autonome (matching-api) : passages de réindexation
+                // incrémentaux entre les backfills complets -- ne retélécharge
+                // que les CV modifiés depuis ce timestamp au lieu de tout le
+                // vivier. Optionnel, ignoré des appelants existants (n8n).
+                'modified_since' => [
+                    'sanitize_callback' => 'sanitize_text_field',
+                    'default'           => '',
+                ],
+            ],
+        ] );
+
+        register_rest_route( $this->namespace, '/jobs', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ $this, 'get_jobs' ],
+            'permission_callback' => [ $this, 'permission_check' ],
+            'args'                => [
+                'offset' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                    'default'           => 0,
+                ],
+                'limit' => [
+                    'validate_callback' => [ $this, 'validate_numeric_param' ],
+                    'default'           => 500,
+                ],
             ],
         ] );
 
@@ -138,6 +162,19 @@ class Keoni_Bridge_Rest {
                 'min_score' => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 0 ],
                 'limit'     => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 20 ],
                 'offset'    => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 0 ],
+            ],
+        ] );
+
+        // Scoring autonome (matching-api) : purge avant réécriture, même
+        // contrat que ajax_reset_matching mais par clé API (pas de session
+        // WP côté service serveur-à-serveur) -- coexiste avec la route GET
+        // ci-dessus sur le même pattern, méthode différente.
+        register_rest_route( $this->namespace, '/matching/(?P<job_id>\d+)', [
+            'methods'             => WP_REST_Server::DELETABLE,
+            'callback'            => [ $this, 'delete_matching' ],
+            'permission_callback' => [ $this, 'permission_check' ],
+            'args'                => [
+                'job_id' => [ 'validate_callback' => [ $this, 'validate_numeric_param' ] ],
             ],
         ] );
     }
@@ -187,6 +224,55 @@ class Keoni_Bridge_Rest {
         ];
 
         return new WP_REST_Response( $data );
+    }
+
+    // Scoring autonome (matching-api) : liste des offres actives, sans
+    // détail (voir get_job() pour la fiche complète) -- même filtre que
+    // Keoni_Bridge_Hooks::scan_js_jobs() (jobstatus + fenêtre de
+    // publication), pour que le service détecte lui-même une offre
+    // nouvelle/modifiée sans dépendre de la fiabilité du webhook WP-Cron.
+    public function get_jobs( WP_REST_Request $request ): WP_REST_Response {
+        global $wpdb;
+
+        $offset = absint( $request->get_param( 'offset' ) );
+        $limit  = min( 1000, max( 1, absint( $request->get_param( 'limit' ) ) ) );
+        $table  = $wpdb->prefix . 'js_job_jobs';
+        $now    = current_time( 'timestamp', true );
+
+        $rows = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT id, modified, created FROM {$table}
+                 WHERE jobstatus = 1 AND startpublishing <= %s
+                   AND (stoppublishing = '0000-00-00 00:00:00' OR stoppublishing >= %s)
+                 ORDER BY id ASC
+                 LIMIT %d OFFSET %d",
+                gmdate( 'Y-m-d H:i:s', $now ),
+                gmdate( 'Y-m-d H:i:s', $now ),
+                $limit,
+                $offset
+            ),
+            ARRAY_A
+        );
+
+        $items = array_map(
+            static function ( array $row ): array {
+                $modified = $row['modified'] ?? '';
+                return [
+                    'id'         => (int) $row['id'],
+                    'updated_at' => ( ! empty( $modified ) && '0000-00-00 00:00:00' !== $modified )
+                        ? $modified
+                        : ( $row['created'] ?? '' ),
+                ];
+            },
+            $rows
+        );
+
+        return new WP_REST_Response( [
+            'offset' => $offset,
+            'limit'  => $limit,
+            'count'  => count( $items ),
+            'items'  => $items,
+        ] );
     }
 
     public function get_cvs( WP_REST_Request $request ): WP_REST_Response {
@@ -325,6 +411,12 @@ class Keoni_Bridge_Rest {
         if ( '' !== $zipcode ) {
             $where[]  = "EXISTS (SELECT 1 FROM {$addr_table} addresszip WHERE addresszip.resumeid = r.id AND addresszip.address_zipcode = %s)";
             $params[] = $zipcode;
+        }
+
+        $modified_since = sanitize_text_field( (string) $request->get_param( 'modified_since' ) );
+        if ( '' !== $modified_since ) {
+            $where[]  = 'r.last_modified >= %s';
+            $params[] = $modified_since;
         }
 
         $join_sql  = empty( $joins ) ? '' : ( "\n" . implode( "\n", array_unique( $joins ) ) );
@@ -466,6 +558,18 @@ class Keoni_Bridge_Rest {
             ],
             201
         );
+    }
+
+    public function delete_matching( WP_REST_Request $request ): WP_REST_Response {
+        $job_id = absint( $request['job_id'] );
+
+        if ( $job_id <= 0 ) {
+            return new WP_REST_Response( [ 'message' => 'Job invalide' ], 400 );
+        }
+
+        $deleted = Keoni_Bridge_Repository::delete_matching_results( $job_id );
+
+        return new WP_REST_Response( [ 'job_id' => $job_id, 'deleted' => $deleted ] );
     }
 
     public function get_matching( WP_REST_Request $request ): WP_REST_Response {
