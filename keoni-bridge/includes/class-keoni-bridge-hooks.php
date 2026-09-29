@@ -29,8 +29,6 @@ class Keoni_Bridge_Hooks {
         add_action( 'wp_ajax_keoni_bridge_reset_matching', [ $this, 'ajax_reset_matching' ] );
         add_action( 'wp_ajax_keoni_bridge_extract_cv', [ $this, 'ajax_extract_cv' ] );
         add_action( 'wp_ajax_keoni_bridge_extract_job', [ $this, 'ajax_extract_job' ] );
-        add_action( 'wp_ajax_keoni_bridge_extract_cv_pdf', [ $this, 'ajax_extract_cv_pdf' ] );
-        add_action( 'wp_ajax_keoni_bridge_extract_job_pdf', [ $this, 'ajax_extract_job_pdf' ] );
         add_action( 'wp_ajax_keoni_bridge_save_scoring_profile', [ $this, 'ajax_save_scoring_profile' ] );
 
         if ( ! wp_next_scheduled( 'keoni_bridge_scan_jobs' ) ) {
@@ -268,85 +266,6 @@ class Keoni_Bridge_Hooks {
         wp_send_json_success( $result );
     }
 
-    public function ajax_extract_cv_pdf(): void {
-        check_ajax_referer( 'keoni_bridge_extract_cv_pdf', 'nonce' );
-
-        $cv_id  = isset( $_POST['cv_id'] ) ? absint( wp_unslash( $_POST['cv_id'] ) ) : 0;
-        $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
-
-        if ( $cv_id <= 0 || $job_id <= 0 ) {
-            wp_send_json_error( [ 'message' => __( 'Requête invalide.', 'keoni-bridge' ) ], 400 );
-        }
-
-        if ( ! $this->user_can_manage_job_matching( $job_id ) ) {
-            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
-        }
-
-        $resume = Keoni_Bridge_Repository::get_resumes_by_ids( [ $cv_id ] )[ $cv_id ] ?? null;
-
-        if ( empty( $resume ) || empty( $resume['resume_file_url'] ) ) {
-            wp_send_json_error( [ 'message' => __( 'CV introuvable.', 'keoni-bridge' ) ], 404 );
-        }
-
-        $payload = [
-            'id'                => $cv_id,
-            'candidate_email'   => $resume['email'] ?? '',
-            'application_title' => $resume['application_title'] ?? '',
-            'file_path'         => $resume['resume_file_url'],
-        ];
-
-        $pdf_base64 = $this->call_extract_pdf_webhook( 'keoni/extract-cv-pdf', $payload );
-
-        if ( null === $pdf_base64 ) {
-            wp_send_json_error( [ 'message' => __( 'Impossible de générer le PDF de contrôle.', 'keoni-bridge' ) ], 500 );
-        }
-
-        wp_send_json_success( [ 'pdf_base64' => $pdf_base64 ] );
-    }
-
-    public function ajax_extract_job_pdf(): void {
-        check_ajax_referer( 'keoni_bridge_extract_job_pdf', 'nonce' );
-
-        $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
-
-        if ( $job_id <= 0 ) {
-            wp_send_json_error( [ 'message' => __( 'Offre invalide.', 'keoni-bridge' ) ], 400 );
-        }
-
-        if ( ! $this->user_can_manage_job_matching( $job_id ) ) {
-            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
-        }
-
-        $rest     = new Keoni_Bridge_Rest();
-        $request  = new WP_REST_Request( 'GET', '/keoni/v1/job/' . $job_id );
-        $request->set_param( 'id', $job_id );
-        $response = $rest->get_job( $request );
-        $job      = $response->get_data();
-
-        if ( empty( $job ) || 404 === $response->get_status() ) {
-            wp_send_json_error( [ 'message' => __( 'Offre introuvable.', 'keoni-bridge' ) ], 404 );
-        }
-
-        $payload = [
-            'id'          => $job['id'],
-            'title'       => $job['title'] ?? '',
-            'description' => $job['content'] ?? '',
-            'content'     => $job['content'] ?? '',
-            'excerpt'     => $job['excerpt'] ?? '',
-            'keywords'    => $job['keywords'] ?? '',
-            'location'    => $job['location'] ?? '',
-            'meta'        => $job['meta'] ?? [],
-        ];
-
-        $pdf_base64 = $this->call_extract_pdf_webhook( 'keoni/extract-job-pdf', $payload );
-
-        if ( null === $pdf_base64 ) {
-            wp_send_json_error( [ 'message' => __( 'Impossible de générer le PDF de contrôle.', 'keoni-bridge' ) ], 500 );
-        }
-
-        wp_send_json_success( [ 'pdf_base64' => $pdf_base64 ] );
-    }
-
     private function post_extract_webhook( string $path, array $payload ): ?array {
         $settings = Keoni_Bridge::get_settings();
         $base     = $settings['webhook_url'] ?? '';
@@ -400,23 +319,6 @@ class Keoni_Bridge_Hooks {
             'text'   => (string) ( $body['text'] ?? '' ),
             'skills' => array_values( array_filter( array_map( 'sanitize_text_field', (array) ( $body['skills'] ?? [] ) ) ) ),
         ];
-    }
-
-    // Endpoints /extract/*/pdf de matching-api : rendu PDF (texte extrait,
-    // monochrome, voir app/main.py::render_text_pdf) qui sert d'outil QA
-    // pour vérifier visuellement que l'extraction n'a pas mélangé de
-    // colonnes/tableaux ni tronqué un CV long -- même principe que le
-    // "PDF structuré" d'AI Real-Time. Renvoyé en base64 dans le JSON (pas
-    // en octets bruts) pour que le nœud n8n "HTTP Request" reste identique
-    // aux autres appels JSON, sans configuration binaire.
-    private function call_extract_pdf_webhook( string $path, array $payload ): ?string {
-        $body = $this->post_extract_webhook( $path, $payload );
-
-        if ( null === $body || empty( $body['pdf_base64'] ) || ! is_string( $body['pdf_base64'] ) ) {
-            return null;
-        }
-
-        return $body['pdf_base64'];
     }
 
     public function ajax_save_scoring_profile(): void {
