@@ -100,87 +100,6 @@
 		return wrap;
 	}
 
-	// PDF de contrôle qualité d'extraction (matching-api::render_text_pdf) --
-	// rendu monochrome du texte réellement extrait, pas un aperçu du fichier
-	// d'origine (voir data-keoni-open-cv pour ça). Renvoyé en base64 par
-	// keoni_bridge_extract_cv_pdf/keoni_bridge_extract_job_pdf pour éviter
-	// toute négociation binaire côté n8n.
-	var currentPdfBlobUrl = null;
-
-	function releasePdfBlobUrl() {
-		if (currentPdfBlobUrl) {
-			URL.revokeObjectURL(currentPdfBlobUrl);
-			currentPdfBlobUrl = null;
-		}
-	}
-
-	function base64ToBlob(base64) {
-		var byteChars = atob(base64);
-		var byteNumbers = new Array(byteChars.length);
-		for (var i = 0; i < byteChars.length; i++) {
-			byteNumbers[i] = byteChars.charCodeAt(i);
-		}
-		return new Blob([new Uint8Array(byteNumbers)], { type: 'application/pdf' });
-	}
-
-	function renderPdfFrame(pdfBase64, title) {
-		releasePdfBlobUrl();
-		currentPdfBlobUrl = URL.createObjectURL(base64ToBlob(pdfBase64));
-		var iframe = document.createElement('iframe');
-		iframe.src = currentPdfBlobUrl;
-		iframe.title = title || 'PDF';
-		return iframe;
-	}
-
-	function runExtractPdf(button, action, extraParams) {
-		var ajaxUrl = settings.ajaxUrl;
-		if (!ajaxUrl) return;
-		var title = button.dataset.modalTitle || '';
-		markLastClicked(button);
-
-		if (button.dataset.cachedPdf) {
-			openModal(title, renderPdfFrame(button.dataset.cachedPdf, title));
-			return;
-		}
-
-		if (button.dataset.loading === '1') return;
-
-		var defaultText = button.dataset.defaultText || button.textContent;
-		button.dataset.loading = '1';
-		button.disabled = true;
-		button.textContent = button.dataset.loadingText || 'Génération...';
-
-		var params = new URLSearchParams();
-		params.append('action', action);
-		params.append('nonce', button.dataset.nonce || '');
-		Object.keys(extraParams).forEach(function (key) {
-			params.append(key, extraParams[key]);
-		});
-
-		fetch(ajaxUrl, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-			body: params.toString(),
-		})
-			.then(function (resp) { return resp.json(); })
-			.then(function (result) {
-				button.dataset.loading = '0';
-				button.disabled = false;
-				button.textContent = defaultText;
-				if (!result || !result.success || !result.data || !result.data.pdf_base64) {
-					throw new Error((result && result.data && result.data.message) || "Erreur lors de la génération du PDF.");
-				}
-				button.dataset.cachedPdf = result.data.pdf_base64;
-				openModal(title, renderPdfFrame(result.data.pdf_base64, title));
-			})
-			.catch(function (error) {
-				button.dataset.loading = '0';
-				button.disabled = false;
-				button.textContent = defaultText;
-				openModal(title, textNode('keoni-matching__muted', (error && error.message) || "Erreur lors de la génération du PDF."));
-			});
-	}
-
 	function runExtract(button, action, extraParams) {
 		var ajaxUrl = settings.ajaxUrl;
 		if (!ajaxUrl) return;
@@ -281,25 +200,6 @@
 			event.preventDefault();
 			runExtract(extractJobButton, 'keoni_bridge_extract_job', {
 				job_id: extractJobButton.dataset.jobId || '',
-			});
-			return;
-		}
-
-		var extractCvPdfButton = event.target.closest('[data-keoni-extract-cv-pdf]');
-		if (extractCvPdfButton) {
-			event.preventDefault();
-			runExtractPdf(extractCvPdfButton, 'keoni_bridge_extract_cv_pdf', {
-				cv_id: extractCvPdfButton.dataset.cvId || '',
-				job_id: extractCvPdfButton.dataset.jobId || '',
-			});
-			return;
-		}
-
-		var extractJobPdfButton = event.target.closest('[data-keoni-extract-job-pdf]');
-		if (extractJobPdfButton) {
-			event.preventDefault();
-			runExtractPdf(extractJobPdfButton, 'keoni_bridge_extract_job_pdf', {
-				job_id: extractJobPdfButton.dataset.jobId || '',
 			});
 			return;
 		}
