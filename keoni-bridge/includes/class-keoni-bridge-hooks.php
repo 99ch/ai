@@ -459,11 +459,15 @@ class Keoni_Bridge_Hooks {
 
         $table = $wpdb->prefix . 'js_job_jobs';
 
+        // `status` (pas `jobstatus`, étape du pipeline RH -- voir la même
+        // correction et sa justification dans
+        // Keoni_Bridge_Rest::get_jobs()) : ce cron cherchait jusqu'ici sur
+        // le mauvais champ et ne trouvait donc jamais aucune offre à
+        // rescanner, silencieusement (aucune erreur, juste 0 ligne à
+        // chaque passage).
         $rows = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT id FROM {$table} WHERE jobstatus = 1 AND startpublishing <= %s AND (stoppublishing = '0000-00-00 00:00:00' OR stoppublishing >= %s) AND UNIX_TIMESTAMP(modified) > %d ORDER BY modified ASC LIMIT 50",
-                gmdate( 'Y-m-d H:i:s', $now ),
-                gmdate( 'Y-m-d H:i:s', $now ),
+                "SELECT id FROM {$table} WHERE status = 1 AND DATE(startpublishing) <= CURDATE() AND DATE(stoppublishing) >= CURDATE() AND UNIX_TIMESTAMP(modified) > %d ORDER BY modified ASC LIMIT 50",
                 $last_scan
             )
         );
