@@ -100,23 +100,79 @@ class Keoni_Bridge_Hooks {
             wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
         }
 
-        // Purge les résultats d'un run précédent avant d'en déclencher un
-        // nouveau : store_matching() ne fait qu'un REPLACE par candidat
-        // reçu, donc un candidat absent du nouveau run (pool retenu par
-        // n8n différent d'un run à l'autre) restait sinon affiché
-        // indéfiniment avec un score/rang obsolète -- observé en prod avec
-        // plusieurs candidats affichant "Rang #1" simultanément, chacun
-        // issu d'un run distinct jamais nettoyé.
-        Keoni_Bridge_Repository::delete_matching_results( $job_id );
+        // Branche rapide : appel synchrone direct à matching-api
+        // (/score-fast, dérivé de l'URL /score réglée dans les paramètres),
+        // plus de passage par n8n. La réponse HTTP contient déjà les
+        // résultats définitifs -- pas de polling nécessaire côté frontend,
+        // contrairement à l'ancien flux webhook. Purge d'abord, même
+        // raison que l'ancien flux : un candidat absent du nouveau run ne
+        // doit pas rester affiché indéfiniment avec un score obsolète.
+        // Table cv_matching_results_fast uniquement -- la branche autonome
+        // (cv_matching_results, "Voir résultat2") n'est jamais touchée ici.
+        Keoni_Bridge_Repository::delete_matching_results_fast( $job_id );
 
-        if ( ! $this->trigger_webhook( $job_id, get_current_user_id() ) ) {
-            wp_send_json_error( [ 'message' => __( 'Impossible de contacter le webhook IA.', 'keoni-bridge' ) ], 500 );
+        $response = $this->call_score_fast( $job_id );
+
+        if ( null === $response ) {
+            wp_send_json_error( [ 'message' => __( 'Impossible de contacter le service de matching.', 'keoni-bridge' ) ], 500 );
         }
 
+        $results     = is_array( $response['results'] ?? null ) ? $response['results'] : [];
+        $duration_ms = (int) ( $response['duration_ms'] ?? 0 );
+        Keoni_Bridge_Repository::store_matching_results_fast( $job_id, $results );
+        Keoni_Bridge_Repository::set_workflow_kpi_fast( $job_id, [ 'duration_ms' => $duration_ms ] );
+
         wp_send_json_success( [
-            'message'    => __( 'Matching IA lancé pour cette offre.', 'keoni-bridge' ),
-            'started_at' => current_time( 'timestamp', true ),
+            'message'     => __( 'Matching IA terminé.', 'keoni-bridge' ),
+            'complete'    => true,
+            'count'       => count( $results ),
+            'duration_ms' => $duration_ms,
         ] );
+    }
+
+    /**
+     * Appelle matching-api directement (POST /score-fast), sans passer par
+     * n8n -- voir ajax_run_matching(). L'URL /score-fast est dérivée du
+     * réglage "URL matching API" existant (matching_url, jusqu'ici réservé
+     * sans jamais être câblé) en remplaçant son suffixe /score.
+     */
+    private function call_score_fast( int $job_id ): ?array {
+        $settings = Keoni_Bridge::get_settings();
+        $base     = $settings['matching_url'] ?? '';
+        $api_key  = $settings['matching_api_key'] ?? '';
+
+        if ( empty( $base ) || empty( $api_key ) ) {
+            error_log( '[Keoni Bridge] /score-fast: matching_url ou matching_api_key manquant dans les réglages.' );
+            return null;
+        }
+
+        $url = preg_match( '#/score$#', $base )
+            ? preg_replace( '#/score$#', '/score-fast', $base )
+            : rtrim( $base, '/' ) . '/score-fast';
+
+        $response = wp_remote_post( $url, [
+            'timeout' => 120,
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'X-API-Key'    => sanitize_text_field( $api_key ),
+            ],
+            'body'    => wp_json_encode( [ 'job_id' => $job_id ] ),
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            error_log( sprintf( '[Keoni Bridge] /score-fast error for job %d: %s', $job_id, $response->get_error_message() ) );
+            return null;
+        }
+
+        $status_code = (int) wp_remote_retrieve_response_code( $response );
+        $body        = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+
+        if ( $status_code < 200 || $status_code >= 300 || ! is_array( $body ) ) {
+            error_log( sprintf( '[Keoni Bridge] /score-fast HTTP %d for job %d.', $status_code, $job_id ) );
+            return null;
+        }
+
+        return $body;
     }
 
     public function ajax_matching_status(): void {
@@ -165,6 +221,7 @@ class Keoni_Bridge_Hooks {
         check_ajax_referer( 'keoni_bridge_reset_matching', 'nonce' );
 
         $job_id = isset( $_POST['job_id'] ) ? absint( wp_unslash( $_POST['job_id'] ) ) : 0;
+        $source = isset( $_POST['source'] ) ? sanitize_text_field( wp_unslash( $_POST['source'] ) ) : '';
 
         if ( $job_id <= 0 ) {
             wp_send_json_error( [ 'message' => __( 'Job invalide.', 'keoni-bridge' ) ], 400 );
@@ -174,7 +231,9 @@ class Keoni_Bridge_Hooks {
             wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
         }
 
-        $deleted = Keoni_Bridge_Repository::delete_matching_results( $job_id );
+        $deleted = 'fast' === $source
+            ? Keoni_Bridge_Repository::delete_matching_results_fast( $job_id )
+            : Keoni_Bridge_Repository::delete_matching_results( $job_id );
 
         wp_send_json_success( [
             'message' => __( 'Résultats IA réinitialisés.', 'keoni-bridge' ),

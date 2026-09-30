@@ -336,6 +336,189 @@ class Keoni_Bridge_Repository {
         return $deleted;
     }
 
+    /**
+     * Équivalents "branche rapide" (table wp_cv_matching_results_fast) des
+     * méthodes matching ci-dessus, pour les résultats de /score-fast
+     * (bouton "Lancer IA"). Table distincte de cv_matching_results (branche
+     * autonome, alimentée en fond par matching-api) -- jamais les deux
+     * jeux de résultats mélangés. Contrairement à get_matching_results(),
+     * pas de GROUP BY/MAX : wp_cv_matching_results_fast a une vraie
+     * UNIQUE KEY (job_id, cv_id) posée à la création (voir
+     * Keoni_Bridge_Install::maybe_create_tables), donc $wpdb->replace()
+     * garantit déjà une seule ligne par candidat.
+     */
+    public static function store_matching_results_fast( int $job_id, array $results ): int {
+        global $wpdb;
+
+        if ( $job_id <= 0 ) {
+            return 0;
+        }
+
+        $table = $wpdb->prefix . 'cv_matching_results_fast';
+        $stored = 0;
+
+        foreach ( $results as $result ) {
+            $ok = $wpdb->replace(
+                $table,
+                [
+                    'job_id'    => $job_id,
+                    'cv_id'     => absint( $result['cv_id'] ?? 0 ),
+                    'score'     => floatval( $result['score'] ?? 0 ),
+                    'strengths' => wp_json_encode( $result['strengths'] ?? [] ),
+                    'weaknesses'=> wp_json_encode( $result['weaknesses'] ?? [] ),
+                    'keywords'  => wp_json_encode( $result['keywords'] ?? [] ),
+                    'extra'     => wp_json_encode( $result['extra'] ?? [] ),
+                    'updated_at'=> current_time( 'mysql', true ),
+                ]
+            );
+
+            if ( false !== $ok ) {
+                $stored++;
+            }
+        }
+
+        return $stored;
+    }
+
+    public static function get_matching_results_fast( int $job_id, float $min_score, int $limit, int $offset ): array {
+        global $wpdb;
+
+        $limit  = min( 100, max( 1, $limit ) );
+        $offset = max( 0, $offset );
+
+        $table = $wpdb->prefix . 'cv_matching_results_fast';
+
+        $query = $wpdb->prepare(
+            "SELECT SQL_CALC_FOUND_ROWS
+                    cv_id, score, strengths, weaknesses, keywords, extra, updated_at
+             FROM {$table}
+             WHERE job_id = %d AND score >= %f
+             ORDER BY score DESC
+             LIMIT %d OFFSET %d",
+            $job_id,
+            $min_score,
+            $limit,
+            $offset
+        );
+
+        $items = $wpdb->get_results( $query, ARRAY_A );
+        $total = (int) $wpdb->get_var( 'SELECT FOUND_ROWS()' );
+
+        foreach ( $items as &$item ) {
+            $item['strengths'] = json_decode( (string) ( $item['strengths'] ?? '' ), true ) ?: [];
+            $item['weaknesses']= json_decode( (string) ( $item['weaknesses'] ?? '' ), true ) ?: [];
+            $item['keywords']  = json_decode( (string) ( $item['keywords'] ?? '' ), true ) ?: [];
+            $item['extra']     = json_decode( (string) ( $item['extra'] ?? '' ), true ) ?: [];
+        }
+
+        return [
+            'items'  => $items,
+            'total'  => $total,
+            'limit'  => $limit,
+            'offset' => $offset,
+        ];
+    }
+
+    public static function get_matching_status_fast( int $job_id ): array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'cv_matching_results_fast';
+
+        $last_updated = $wpdb->get_var(
+            $wpdb->prepare( "SELECT MAX(updated_at) FROM {$table} WHERE job_id = %d", $job_id )
+        );
+
+        $total = (int) $wpdb->get_var(
+            $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE job_id = %d", $job_id )
+        );
+
+        return [
+            'total'        => $total,
+            'last_updated' => $last_updated ?: '',
+        ];
+    }
+
+    public static function delete_matching_results_fast( int $job_id ): int {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'cv_matching_results_fast';
+
+        return (int) $wpdb->delete( $table, [ 'job_id' => $job_id ] );
+    }
+
+    public static function get_matching_kpis_fast( int $job_id ): array {
+        global $wpdb;
+
+        $table = $wpdb->prefix . 'cv_matching_results_fast';
+
+        $aggregates = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT
+                    COUNT(*) AS candidates_count,
+                    SUM(CASE WHEN score >= 50 THEN 1 ELSE 0 END) AS qualified_count,
+                    AVG(score) AS avg_score,
+                    MAX(score) AS best_score,
+                    MIN(score) AS min_score
+                 FROM {$table}
+                 WHERE job_id = %d",
+                $job_id
+            ),
+            ARRAY_A
+        );
+
+        $kpi = self::get_workflow_kpi_fast( $job_id );
+        $duration_ms = isset( $kpi['duration_ms'] ) && is_numeric( $kpi['duration_ms'] ) ? (int) $kpi['duration_ms'] : null;
+
+        return [
+            'candidates_count' => (int) ( $aggregates['candidates_count'] ?? 0 ),
+            'qualified_count'  => (int) ( $aggregates['qualified_count'] ?? 0 ),
+            'avg_score'        => isset( $aggregates['avg_score'] ) ? (float) $aggregates['avg_score'] : 0,
+            'best_score'       => isset( $aggregates['best_score'] ) ? (float) $aggregates['best_score'] : 0,
+            'min_score'        => isset( $aggregates['min_score'] ) ? (float) $aggregates['min_score'] : 0,
+            'duration_ms'      => $duration_ms,
+        ];
+    }
+
+    /**
+     * Durée d'exécution de la branche rapide -- même mécanisme de stockage
+     * (option WP) que set_workflow_kpi()/get_workflow_kpi() côté branche
+     * autonome (n8n), mais sous une clé distincte pour ne jamais mélanger
+     * les deux durées : /score-fast n'appelle jamais "Store Final KPI".
+     */
+    public static function set_workflow_kpi_fast( int $job_id, array $payload ): bool {
+        if ( $job_id <= 0 ) {
+            return false;
+        }
+
+        $duration_ms = isset( $payload['duration_ms'] ) && is_numeric( $payload['duration_ms'] ) ? (int) $payload['duration_ms'] : 0;
+
+        if ( $duration_ms <= 0 ) {
+            return false;
+        }
+
+        $data = [
+            'job_id'      => $job_id,
+            'duration_ms' => $duration_ms,
+            'updated_at'  => current_time( 'mysql', true ),
+        ];
+
+        return (bool) update_option( self::workflow_kpi_fast_option_key( $job_id ), $data, false );
+    }
+
+    public static function get_workflow_kpi_fast( int $job_id ): array {
+        if ( $job_id <= 0 ) {
+            return [];
+        }
+
+        $value = get_option( self::workflow_kpi_fast_option_key( $job_id ), [] );
+
+        return is_array( $value ) ? $value : [];
+    }
+
+    private static function workflow_kpi_fast_option_key( int $job_id ): string {
+        return 'keoni_bridge_workflow_kpi_fast_' . $job_id;
+    }
+
     public static function get_resumes_by_emails( array $emails ): array {
         global $wpdb;
 

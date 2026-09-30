@@ -221,6 +221,7 @@
 			params.append('action', 'keoni_bridge_reset_matching');
 			params.append('nonce', resetButton.dataset.nonce || '');
 			params.append('job_id', resetButton.dataset.jobId || '');
+			params.append('source', resetButton.dataset.source || '');
 			resetButton.dataset.loading = '1';
 			var defaultText = resetButton.dataset.defaultText || 'Réinitialiser les résultats IA';
 			resetButton.textContent = resetButton.dataset.loadingText || 'Réinitialisation...';
@@ -279,6 +280,7 @@
 			params2.append('limit', String(limit));
 			params2.append('offset', String(offset));
 			params2.append('min_score', loadMoreButton.dataset.minScore || '0');
+			params2.append('source', loadMoreButton.dataset.source || '');
 			loadMoreButton.dataset.loading = '1';
 			var defaultText2 = loadMoreButton.dataset.defaultText || 'Afficher plus';
 			loadMoreButton.textContent = loadMoreButton.dataset.loadingText || 'Chargement...';
