@@ -100,6 +100,18 @@ class Keoni_Bridge_Admin {
             'keoni_bridge_section_main'
         );
 
+        // Clé API sortante utilisée pour appeler matching-api directement
+        // (branche rapide "Lancer IA" -> /score-fast) -- distincte de la
+        // clé API entrante ci-dessus (keoni_bridge_api_key, qui protège
+        // les routes REST que matching-api/n8n appellent EN SENS INVERSE).
+        add_settings_field(
+            'keoni_bridge_matching_api_key',
+            __( 'Clé API matching (sortante)', 'keoni-bridge' ),
+            [ $this, 'render_matching_api_key_field' ],
+            'keoni-bridge',
+            'keoni_bridge_section_main'
+        );
+
         add_settings_field(
             'keoni_bridge_cv_roles',
             __( 'Accès base CV', 'keoni-bridge' ),
@@ -122,6 +134,10 @@ class Keoni_Bridge_Admin {
 
         if ( isset( $input['webhook_secret'] ) ) {
             $output['webhook_secret'] = sanitize_text_field( $input['webhook_secret'] );
+        }
+
+        if ( isset( $input['matching_api_key'] ) ) {
+            $output['matching_api_key'] = sanitize_text_field( $input['matching_api_key'] );
         }
 
         $cv_roles = $this->sanitize_cv_roles_input( $input['cv_roles'] ?? null );
@@ -367,6 +383,17 @@ class Keoni_Bridge_Admin {
             esc_attr( $this->option_name ),
             esc_attr( $settings['matching_url'] )
         );
+        echo '<p class="description">' . esc_html__( 'URL du endpoint /score de matching-api. La branche rapide dérive /score-fast à partir de cette même URL.', 'keoni-bridge' ) . '</p>';
+    }
+
+    public function render_matching_api_key_field(): void {
+        $settings = Keoni_Bridge::get_settings();
+        printf(
+            '<input type="text" name="%1$s[matching_api_key]" value="%2$s" class="regular-text" placeholder="MATCHING_API_KEY" />',
+            esc_attr( $this->option_name ),
+            esc_attr( $settings['matching_api_key'] )
+        );
+        echo '<p class="description">' . esc_html__( 'La même clé que MATCHING_API_KEY côté matching-api.', 'keoni-bridge' ) . '</p>';
     }
 
     public function render_webhook_secret_field(): void {

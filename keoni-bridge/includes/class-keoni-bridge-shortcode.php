@@ -25,23 +25,36 @@ class Keoni_Bridge_Shortcode {
                 'limit'     => 20,
                 'min_score' => 0,
                 'offset'    => 0,
+                // 'autonomous' (défaut, table cv_matching_results alimentée
+                // en fond par matching-api) ou 'fast' (cv_matching_results_fast,
+                // bouton "Lancer IA" -> /score-fast) -- voir
+                // Keoni_Bridge_Repository pour les deux jeux de méthodes.
+                'source'    => 'autonomous',
             ],
             $atts,
             'keoni_matching'
         );
 
-        $job_id = absint( $atts['job_id'] );
+        $job_id    = absint( $atts['job_id'] );
+        $is_fast   = 'fast' === $atts['source'];
 
         if ( 0 === $job_id ) {
             return '<p>' . esc_html__( 'Aucun job_id fourni.', 'keoni-bridge' ) . '</p>';
         }
 
-        $data = Keoni_Bridge_Repository::get_matching_results(
-            $job_id,
-            floatval( $atts['min_score'] ),
-            absint( $atts['limit'] ),
-            absint( $atts['offset'] )
-        );
+        $data = $is_fast
+            ? Keoni_Bridge_Repository::get_matching_results_fast(
+                $job_id,
+                floatval( $atts['min_score'] ),
+                absint( $atts['limit'] ),
+                absint( $atts['offset'] )
+            )
+            : Keoni_Bridge_Repository::get_matching_results(
+                $job_id,
+                floatval( $atts['min_score'] ),
+                absint( $atts['limit'] ),
+                absint( $atts['offset'] )
+            );
 
         if ( empty( $data['items'] ) ) {
             return '<div class="keoni-matching__empty">' . esc_html__( 'Aucun candidat correspondant.', 'keoni-bridge' ) . '</div>';
@@ -62,7 +75,9 @@ class Keoni_Bridge_Shortcode {
         $limit      = intval( $data['limit'] ?? $atts['limit'] );
         $offset     = intval( $data['offset'] ?? $atts['offset'] );
         $has_more   = ( $offset + $limit ) < $total;
-        $kpis       = Keoni_Bridge_Repository::get_matching_kpis( $job_id );
+        $kpis       = $is_fast
+            ? Keoni_Bridge_Repository::get_matching_kpis_fast( $job_id )
+            : Keoni_Bridge_Repository::get_matching_kpis( $job_id );
 
         $avg_score_label = number_format_i18n( (float) ( $kpis['avg_score'] ?? 0 ), 1 );
         $best_score_label = number_format_i18n( (float) ( $kpis['best_score'] ?? 0 ), 1 );
@@ -133,6 +148,7 @@ class Keoni_Bridge_Shortcode {
                         class="keoni-matching__btn keoni-matching__btn--ghost"
                         data-keoni-reset
                         data-job-id="<?php echo esc_attr( $job_id ); ?>"
+                        data-source="<?php echo esc_attr( $atts['source'] ); ?>"
                         data-nonce="<?php echo esc_attr( $reset_nonce ); ?>"
                         data-confirm-text="<?php esc_attr_e( 'Supprimer tous les résultats IA pour cette offre ?', 'keoni-bridge' ); ?>"
                         data-default-text="<?php esc_attr_e( 'Réinitialiser les résultats IA', 'keoni-bridge' ); ?>"
@@ -144,6 +160,7 @@ class Keoni_Bridge_Shortcode {
                             class="keoni-matching__btn keoni-matching__btn--ghost"
                             data-keoni-load-more
                             data-job-id="<?php echo esc_attr( $job_id ); ?>"
+                            data-source="<?php echo esc_attr( $atts['source'] ); ?>"
                             data-limit="<?php echo esc_attr( $limit ); ?>"
                             data-offset="<?php echo esc_attr( $offset ); ?>"
                             data-min-score="<?php echo esc_attr( $atts['min_score'] ); ?>"
@@ -478,12 +495,15 @@ class Keoni_Bridge_Shortcode {
         $limit     = max( 1, absint( wp_unslash( $_POST['limit'] ?? 20 ) ) );
         $offset    = max( 0, absint( wp_unslash( $_POST['offset'] ?? 0 ) ) );
         $min_score = floatval( wp_unslash( $_POST['min_score'] ?? 0 ) );
+        $is_fast   = 'fast' === sanitize_text_field( wp_unslash( $_POST['source'] ?? '' ) );
 
         if ( 0 === $job_id ) {
             wp_send_json_error( [ 'message' => __( 'Job invalide.', 'keoni-bridge' ) ], 400 );
         }
 
-        $results = Keoni_Bridge_Repository::get_matching_results( $job_id, $min_score, $limit, $offset );
+        $results = $is_fast
+            ? Keoni_Bridge_Repository::get_matching_results_fast( $job_id, $min_score, $limit, $offset )
+            : Keoni_Bridge_Repository::get_matching_results( $job_id, $min_score, $limit, $offset );
 
         if ( empty( $results['items'] ) ) {
             $results['next_offset'] = min( $results['offset'], $results['total'] );

@@ -34,6 +34,8 @@ class Keoni_Bridge {
     }
 
     public function boot(): void {
+        Keoni_Bridge_Install::maybe_upgrade();
+
         $this->admin     = new Keoni_Bridge_Admin();
         $this->rest      = new Keoni_Bridge_Rest();
         $this->shortcode = new Keoni_Bridge_Shortcode();
@@ -56,10 +58,11 @@ class Keoni_Bridge {
 
     public static function get_settings(): array {
         $defaults = [
-            'webhook_url'    => '',
-            'matching_url'   => '',
-            'webhook_secret' => '',
-            'cv_roles'       => [ 'administrator' ],
+            'webhook_url'      => '',
+            'matching_url'     => '',
+            'matching_api_key' => '',
+            'webhook_secret'   => '',
+            'cv_roles'         => [ 'administrator' ],
         ];
 
         return wp_parse_args( get_option( 'keoni_bridge_settings', [] ), $defaults );

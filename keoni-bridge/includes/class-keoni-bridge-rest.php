@@ -177,6 +177,23 @@ class Keoni_Bridge_Rest {
                 'job_id' => [ 'validate_callback' => [ $this, 'validate_numeric_param' ] ],
             ],
         ] );
+
+        // Branche rapide ("Lancer IA" -> /score-fast côté matching-api) --
+        // lecture seule ici : ajax_run_matching() écrit directement via
+        // Keoni_Bridge_Repository (même processus PHP, appel synchrone),
+        // cette route ne sert qu'à (re)charger la page de résultats sans
+        // relancer un scoring.
+        register_rest_route( $this->namespace, '/matching-fast/(?P<job_id>\d+)', [
+            'methods'             => WP_REST_Server::READABLE,
+            'callback'            => [ $this, 'get_matching_fast' ],
+            'permission_callback' => '__return_true',
+            'args'                => [
+                'job_id'    => [ 'validate_callback' => [ $this, 'validate_numeric_param' ] ],
+                'min_score' => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 0 ],
+                'limit'     => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 20 ],
+                'offset'    => [ 'validate_callback' => [ $this, 'validate_numeric_param' ], 'default' => 0 ],
+            ],
+        ] );
     }
 
     public function permission_check( WP_REST_Request $request ): bool {
@@ -586,6 +603,24 @@ class Keoni_Bridge_Rest {
         $offset    = absint( $request->get_param( 'offset' ) );
 
         $results = Keoni_Bridge_Repository::get_matching_results( $job_id, $min_score, $limit, $offset );
+
+        $with_html = (bool) $request->get_param( 'with_html' );
+
+        if ( $with_html && ! empty( $results['items'] ) && class_exists( 'Keoni_Bridge_Shortcode' ) ) {
+            $cv_map = Keoni_Bridge_Repository::get_cvs_by_ids( wp_list_pluck( $results['items'], 'cv_id' ) );
+            $results['items_html'] = Keoni_Bridge_Shortcode::render_cards_html( $results['items'], $cv_map );
+        }
+
+        return new WP_REST_Response( $results );
+    }
+
+    public function get_matching_fast( WP_REST_Request $request ): WP_REST_Response {
+        $job_id    = absint( $request['job_id'] );
+        $min_score = floatval( $request->get_param( 'min_score' ) );
+        $limit     = absint( $request->get_param( 'limit' ) );
+        $offset    = absint( $request->get_param( 'offset' ) );
+
+        $results = Keoni_Bridge_Repository::get_matching_results_fast( $job_id, $min_score, $limit, $offset );
 
         $with_html = (bool) $request->get_param( 'with_html' );
 
