@@ -136,12 +136,15 @@ class Keoni_Bridge_Hooks {
      * réglage "URL matching API" existant (matching_url, jusqu'ici réservé
      * sans jamais être câblé) en remplaçant son suffixe /score.
      */
+    private string $last_score_fast_error = '';
+
     private function call_score_fast( int $job_id ): ?array {
         $settings = Keoni_Bridge::get_settings();
         $base     = $settings['matching_url'] ?? '';
         $api_key  = $settings['matching_api_key'] ?? '';
 
         if ( empty( $base ) || empty( $api_key ) ) {
+            $this->last_score_fast_error = 'settings manquants (matching_url ou matching_api_key)';
             error_log( '[Keoni Bridge] /score-fast: matching_url ou matching_api_key manquant dans les réglages.' );
             return null;
         }
@@ -160,6 +163,7 @@ class Keoni_Bridge_Hooks {
         ] );
 
         if ( is_wp_error( $response ) ) {
+            $this->last_score_fast_error = 'url=' . $url . ' wp_error=' . $response->get_error_message();
             error_log( sprintf( '[Keoni Bridge] /score-fast error for job %d: %s', $job_id, $response->get_error_message() ) );
             return null;
         }
@@ -168,6 +172,7 @@ class Keoni_Bridge_Hooks {
         $body        = json_decode( (string) wp_remote_retrieve_body( $response ), true );
 
         if ( $status_code < 200 || $status_code >= 300 || ! is_array( $body ) ) {
+            $this->last_score_fast_error = 'url=' . $url . ' http=' . $status_code . ' body=' . substr( (string) wp_remote_retrieve_body( $response ), 0, 300 );
             error_log( sprintf( '[Keoni Bridge] /score-fast HTTP %d for job %d.', $status_code, $job_id ) );
             return null;
         }
