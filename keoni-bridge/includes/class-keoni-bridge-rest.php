@@ -315,7 +315,15 @@ class Keoni_Bridge_Rest {
         $addr_table   = $wpdb->prefix . 'js_job_resumeaddresses';
 
         $joins  = [];
-        $where  = [ 'r.status = 1', 'r.searchable = 1' ];
+        // r.searchable volontairement absent -- champ technique lié à la
+        // config d'affichage du formulaire (js_job_fieldsordering), pas un
+        // consentement candidat, qui ne vaut 1 que dans des cas précis à la
+        // soumission (voir Resume::save(), js-jobs/modules/resume/model.php) :
+        // la plupart des candidats approuvés (status=1) ne l'ont jamais,
+        // les rendant invisibles pour l'IA alors qu'ils remontent dans
+        // Resume Search (getResumeSearch(), même fichier) qui ne filtre que
+        // sur status. Vivier IA aligné sur celui de Resume Search.
+        $where  = [ 'r.status = 1' ];
         $params = [];
 
         $ids_param = sanitize_text_field( (string) $request->get_param( 'ids' ) );
