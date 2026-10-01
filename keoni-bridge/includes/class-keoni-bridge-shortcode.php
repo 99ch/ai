@@ -86,7 +86,7 @@ class Keoni_Bridge_Shortcode {
         $candidates_count = (int) ( $kpis['candidates_count'] ?? 0 );
         $qualified_label = number_format_i18n( $qualified_count ) . ' / ' . number_format_i18n( $candidates_count );
         $extract_cv_nonce     = wp_create_nonce( 'keoni_bridge_extract_cv' );
-        $cards_html  = self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce );
+        $cards_html  = self::render_grouped_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce );
         $nonce       = wp_create_nonce( 'keoni_matching' );
         $reset_nonce = wp_create_nonce( 'keoni_bridge_reset_matching' );
 
@@ -197,6 +197,61 @@ class Keoni_Bridge_Shortcode {
         // viewjob.php, en dehors du shortcode lui-même.
         wp_enqueue_style( $this->style_handle );
         wp_enqueue_script( $this->script_handle );
+    }
+
+    /**
+     * Sépare les candidats en deux groupes visuels avant de les rendre --
+     * "title" (correspondance stricte de titre, ex-noeud n8n "Fetch CV L1
+     * Strict Title") et "similar" (retenu uniquement par le canal
+     * sémantique/taxonomie de retrieve(), côté matching-api) -- avec un
+     * espacement net entre les deux (voir .keoni-matching__group--spaced,
+     * assets/css/keoni-matching.css). Demandé explicitement pour retrouver
+     * la distinction L1 strict / similaire de l'ancien flux n8n, sur les
+     * deux branches ("Lancer IA" -> fast, et l'autonome en fond).
+     *
+     * item['extra']['retrieval_channel'] vient de build_score() côté
+     * matching-api -- absent (CV scoré avant ce déploiement, ou passé
+     * directement à /score sans passer par retrieve()) retombe dans
+     * "similar", jamais un 3e groupe. Si un des deux groupes est vide, pas
+     * d'en-tête affiché pour rien : simple liste à plat, comme avant.
+     */
+    public static function render_grouped_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [], int $job_id = 0, string $extract_cv_nonce = '' ): string {
+        $title_items   = [];
+        $similar_items = [];
+
+        foreach ( $items as $item ) {
+            $channel = $item['extra']['retrieval_channel'] ?? 'similar';
+            if ( 'title' === $channel ) {
+                $title_items[] = $item;
+            } else {
+                $similar_items[] = $item;
+            }
+        }
+
+        if ( empty( $title_items ) || empty( $similar_items ) ) {
+            return self::render_cards_html( $items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce );
+        }
+
+        ob_start();
+        ?>
+        <div class="keoni-matching__group">
+            <h4 class="keoni-matching__group-title">
+                <?php echo esc_html( sprintf( __( 'Correspondance de titre stricte (%d)', 'keoni-bridge' ), count( $title_items ) ) ); ?>
+            </h4>
+            <div class="keoni-matching__group-cards">
+                <?php echo self::render_cards_html( $title_items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+            </div>
+        </div>
+        <div class="keoni-matching__group keoni-matching__group--spaced">
+            <h4 class="keoni-matching__group-title">
+                <?php echo esc_html( sprintf( __( 'Candidats similaires (%d)', 'keoni-bridge' ), count( $similar_items ) ) ); ?>
+            </h4>
+            <div class="keoni-matching__group-cards">
+                <?php echo self::render_cards_html( $similar_items, $cv_map, $resume_map, $resume_map_by_id, $job_id, $extract_cv_nonce ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+            </div>
+        </div>
+        <?php
+        return ob_get_clean();
     }
 
     public static function render_cards_html( array $items, array $cv_map, array $resume_map = [], array $resume_map_by_id = [], int $job_id = 0, string $extract_cv_nonce = '' ): string {
@@ -519,7 +574,7 @@ class Keoni_Bridge_Shortcode {
         }, array_values( $cv_map ) ) );
         $resume_map           = Keoni_Bridge_Repository::get_resumes_by_emails( $emails );
         $resume_map_by_id     = Keoni_Bridge_Repository::get_resumes_by_ids( $cv_ids );
-        $results['html']      = self::render_cards_html( $results['items'], $cv_map, $resume_map, $resume_map_by_id );
+        $results['html']      = self::render_grouped_cards_html( $results['items'], $cv_map, $resume_map, $resume_map_by_id );
         $results['next_offset'] = min( $results['offset'] + $results['limit'], $results['total'] );
         $results['has_more']    = $results['next_offset'] < $results['total'];
 
