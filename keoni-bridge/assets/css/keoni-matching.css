@@ -1,8 +1,39 @@
-.keoni-matching {
+.keoni-matching,
+.keoni-matching__group-cards {
 	display: grid;
 	gap: 16px;
 	margin: 20px 0;
 	align-items: start;
+}
+
+/* Deux groupes visuels ("titre strict" / "similaires", voir
+   render_grouped_cards_html()) -- chaque groupe reste un bloc pleine
+   largeur (jamais une colonne du grid parent), sa propre grille de cartes
+   vivant dans .keoni-matching__group-cards ci-dessus. */
+.keoni-matching__group {
+	grid-column: 1 / -1;
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+}
+
+.keoni-matching__group-cards {
+	margin: 0;
+}
+
+.keoni-matching__group--spaced {
+	margin-top: 36px;
+	padding-top: 32px;
+	border-top: 1px solid #e2e8f0;
+}
+
+.keoni-matching__group-title {
+	margin: 0;
+	font-size: 13px;
+	font-weight: 700;
+	color: #1e3a8a;
+	text-transform: uppercase;
+	letter-spacing: .04em;
 }
 
 .keoni-matching-kpis {
@@ -549,7 +580,8 @@
 }
 
 @media (min-width: 768px) {
-	.keoni-matching {
+	.keoni-matching,
+	.keoni-matching__group-cards {
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
@@ -576,9 +608,15 @@
 	}
 }
 @media (max-width: 600px) {
-	.keoni-matching {
+	.keoni-matching,
+	.keoni-matching__group-cards {
 		gap: 12px;
 		margin: 12px 0;
+	}
+
+	.keoni-matching__group--spaced {
+		margin-top: 24px;
+		padding-top: 20px;
 	}
 
 	.keoni-matching-kpis {
