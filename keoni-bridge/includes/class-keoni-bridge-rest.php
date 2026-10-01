@@ -205,7 +205,11 @@ class Keoni_Bridge_Rest {
             'title'      => sanitize_text_field( $job['title'] ?? '' ),
             'content'    => wp_kses_post( $job['description'] ?? '' ),
             'excerpt'    => wp_strip_all_tags( $job['description'] ?? '' ),
-            'keywords'   => sanitize_text_field( $job['tags'] ?? '' ),
+            // "Méta Mots-clés" (metakeywords) -- PAS "tags" (jamais rempli
+            // par aucun formulaire recruteur côté js-jobs) ni "prefferdskills"
+            // ("Compétences", champ distinct, n'alimente plus le scoring
+            // mots-clés prioritaires -- décision explicite 2026-10-01).
+            'keywords'   => sanitize_text_field( $job['metakeywords'] ?? '' ),
             'location'   => $this->build_job_location( $job ),
             'salary'     => $this->format_job_salary( $job ),
             'meta'       => [
