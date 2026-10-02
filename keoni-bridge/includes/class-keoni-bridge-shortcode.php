@@ -162,7 +162,7 @@ class Keoni_Bridge_Shortcode {
                             data-job-id="<?php echo esc_attr( $job_id ); ?>"
                             data-source="<?php echo esc_attr( $atts['source'] ); ?>"
                             data-limit="<?php echo esc_attr( $limit ); ?>"
-                            data-offset="<?php echo esc_attr( $offset ); ?>"
+                            data-offset="<?php echo esc_attr( $offset + $limit ); ?>"
                             data-min-score="<?php echo esc_attr( $atts['min_score'] ); ?>"
                             data-nonce="<?php echo esc_attr( $nonce ); ?>"
                             data-default-text="<?php esc_attr_e( 'Afficher plus', 'keoni-bridge' ); ?>"
