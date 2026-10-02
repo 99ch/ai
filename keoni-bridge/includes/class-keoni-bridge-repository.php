@@ -108,8 +108,11 @@ class Keoni_Bridge_Repository {
 
         $table = $wpdb->prefix . 'cv_matching_results';
 
+        // Même garantie de visibilité que get_matching_results_fast() pour
+        // le canal "titre" -- voir son commentaire.
         $query = $wpdb->prepare(
-            "SELECT SQL_CALC_FOUND_ROWS
+            "SELECT SQL_CALC_FOUND_ROWS * FROM (
+                SELECT
                     cv_id,
                     MAX(score) AS score,
                     MAX(strengths) AS strengths,
@@ -117,10 +120,11 @@ class Keoni_Bridge_Repository {
                     MAX(keywords) AS keywords,
                     MAX(extra) AS extra,
                     MAX(updated_at) AS updated_at
-             FROM {$table}
-             WHERE job_id = %d AND score >= %f
-             GROUP BY cv_id
-             ORDER BY score DESC
+                FROM {$table}
+                WHERE job_id = %d AND score >= %f
+                GROUP BY cv_id
+             ) grouped
+             ORDER BY (JSON_UNQUOTE(JSON_EXTRACT(extra, '$.retrieval_channel')) = 'title') DESC, score DESC
              LIMIT %d OFFSET %d",
             $job_id,
             $min_score,
@@ -388,12 +392,21 @@ class Keoni_Bridge_Repository {
 
         $table = $wpdb->prefix . 'cv_matching_results_fast';
 
+        // Les candidats du canal "titre" (correspondance stricte, voir
+        // retrieve() côté matching-api) passent toujours avant ceux du
+        // canal "similar" -- sinon LIMIT %d par score pur peut les laisser
+        // hors de la page affichée même quand ils existent bien en base
+        // (score final plus bas sur les autres composantes), et la
+        // séparation visuelle (render_grouped_cards_html()) ne voit alors
+        // jamais qu'un seul groupe. Pas de passe-droit sur le score au
+        // sein de chaque groupe : triés par score DESC comme avant, juste
+        // le groupe "titre" garanti visible en premier s'il existe.
         $query = $wpdb->prepare(
             "SELECT SQL_CALC_FOUND_ROWS
                     cv_id, score, strengths, weaknesses, keywords, extra, updated_at
              FROM {$table}
              WHERE job_id = %d AND score >= %f
-             ORDER BY score DESC
+             ORDER BY (JSON_UNQUOTE(JSON_EXTRACT(extra, '$.retrieval_channel')) = 'title') DESC, score DESC
              LIMIT %d OFFSET %d",
             $job_id,
             $min_score,
