@@ -3,7 +3,7 @@
  * Plugin Name:       Keoni Bridge
  * Plugin URI:        https://keoni-consulting.net
  * Description:       Pont d'intégration entre WordPress, n8n et le service de matching IA.
- * Version:           0.2.3
+ * Version:           0.2.4
  * Author:            Chilavert N'Dah
  * Author URI:        https://keoni-consulting.net
  * License:           GPL-2.0-or-later
@@ -16,7 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-const KEONI_BRIDGE_VERSION = '0.2.3';
+const KEONI_BRIDGE_VERSION = '0.2.4';
 const KEONI_BRIDGE_MIN_PHP = '8.0';
 
 if ( version_compare( PHP_VERSION, KEONI_BRIDGE_MIN_PHP, '<' ) ) {
