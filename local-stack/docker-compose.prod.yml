@@ -15,6 +15,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - keoni_net
 
@@ -26,6 +31,9 @@ services:
     environment:
       MATCHING_API_KEY: ${MATCHING_API_KEY}
       MODEL_CACHE: /models
+      # Cache HuggingFace sur le volume ./volumes/models (et non dans la couche
+      # inscriptible du conteneur : re-téléchargé à chaque déploiement sinon).
+      HF_HOME: /models/huggingface
       DATA_DIR: /data/cv_raw
       MATCHING_PRELOAD_MODEL: ${MATCHING_PRELOAD_MODEL:-1}
       MATCHING_MIN_TITLE_HITS: ${MATCHING_MIN_TITLE_HITS:-3}
@@ -39,6 +47,11 @@ services:
     volumes:
       - ./volumes/models:/models
       - ./volumes/data/cv_raw:/data/cv_raw
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - keoni_net
 
@@ -66,6 +79,11 @@ services:
       - "5678:5678"
     volumes:
       - ./volumes/prod/n8n:/home/node/.n8n
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - keoni_net
 
