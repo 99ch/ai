@@ -13,7 +13,7 @@ Ce runbook décrit la chaîne CI/CD pour déployer la brique IA Keoni (matching-
 - `local-stack/docker-compose.staging.yml`
 - `local-stack/docker-compose.prod.yml`
 - `ops/smoke/smoke_e2e.sh`
-- `ops/backup/backup_postgres.sh`
+- `ops/backup/backup_databases.sh`
 - `ops/monitoring/check_stack.sh`
 - `ops/deploy/rollback.sh`
 
@@ -83,9 +83,16 @@ DEPLOY_PATH=/srv/keoni-local/local-stack ENV_FILE=.env.prod COMPOSE_FILE=docker-
 
 ## 7. Backup et monitoring
 ### 7.1 Backup PostgreSQL
+Script commun aux 6 apps du VPS (Keoni = `app2`), pas spécifique à ce repo
+-- il lit `POSTGRES_DB`/`POSTGRES_USER` directement sur chaque conteneur
+`<app>_db` via `docker inspect`, pas besoin de `DEPLOY_PATH`/`ENV_FILE`.
+Pour Keoni, les tables d'embeddings (`cv_embeddings`,
+`cv_embedding_chunks`) sont exclues du contenu de la sauvegarde
+(recalculables via `POST /admin/reindex-cvs` -- sinon ~1,7 Go sur 1,9 Go
+de base). **Après un restore de la base Keoni, relancer ce reindex.**
+
 ```bash
-DEPLOY_PATH=/srv/keoni-local/local-stack ENV_FILE=.env.prod COMPOSE_FILE=docker-compose.prod.yml \
-  /path/to/repo/ops/backup/backup_postgres.sh
+/path/to/repo/ops/backup/backup_databases.sh
 ```
 
 ### 7.2 Monitoring rapide
@@ -102,6 +109,6 @@ API_URL=https://api.example.com N8N_URL=https://n8n.example.com \
 Exemple:
 
 ```bash
-30 2 * * * /srv/keoni-local/ai/ops/backup/backup_postgres.sh >> /var/log/keoni-backup.log 2>&1
+30 2 * * * /srv/keoni-local/ai/ops/backup/backup_databases.sh >> /var/log/backup-databases.log 2>&1
 */5 * * * * API_URL=https://api.example.com N8N_URL=https://n8n.example.com /srv/keoni-local/ai/ops/monitoring/check_stack.sh >> /var/log/keoni-monitoring.log 2>&1
 ```
