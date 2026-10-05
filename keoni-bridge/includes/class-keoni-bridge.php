@@ -58,13 +58,31 @@ class Keoni_Bridge {
 
     public static function get_settings(): array {
         $defaults = [
-            'webhook_url'      => '',
-            'matching_url'     => '',
-            'matching_api_key' => '',
-            'webhook_secret'   => '',
-            'cv_roles'         => [ 'administrator' ],
+            'webhook_url'          => '',
+            'matching_url'         => '',
+            'matching_api_key'     => '',
+            'webhook_secret'       => '',
+            'cv_roles'             => [ 'administrator' ],
+            'jsjobs_dual_role_ids' => [],
         ];
 
         return wp_parse_args( get_option( 'keoni_bridge_settings', [] ), $defaults );
+    }
+
+    // Comptes "candidat" (profil jobseeker côté js-jobs) autorisés en plus à
+    // gérer des offres (ajout/édition), malgré le contrôle habituel
+    // isemployer() de js-jobs -- cas des RH qui gèrent la plateforme en
+    // interne avec un seul compte plutôt que de jongler entre deux profils.
+    // Liste nominative (pas un rôle WordPress) : un rôle WP comme
+    // "Subscriber" est souvent partagé avec de vrais candidats externes,
+    // l'activer en ferait des employeurs de fait.
+    public static function user_can_manage_jobs_as_employer( int $user_id ): bool {
+        if ( $user_id <= 0 ) {
+            return false;
+        }
+
+        $allowed_ids = array_map( 'intval', (array) self::get_settings()['jsjobs_dual_role_ids'] );
+
+        return in_array( $user_id, $allowed_ids, true );
     }
 }

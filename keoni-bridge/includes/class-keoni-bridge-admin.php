@@ -119,6 +119,14 @@ class Keoni_Bridge_Admin {
             'keoni-bridge',
             'keoni_bridge_section_main'
         );
+
+        add_settings_field(
+            'keoni_bridge_jsjobs_dual_role',
+            __( 'Gestion des offres (profil candidat)', 'keoni-bridge' ),
+            [ $this, 'render_jsjobs_dual_role_field' ],
+            'keoni-bridge',
+            'keoni_bridge_section_main'
+        );
     }
 
     public function sanitize_settings( array $input ): array {
@@ -143,6 +151,8 @@ class Keoni_Bridge_Admin {
         $cv_roles = $this->sanitize_cv_roles_input( $input['cv_roles'] ?? null );
         $output['cv_roles'] = $cv_roles;
         $this->sync_cv_capability( $cv_roles );
+
+        $output['jsjobs_dual_role_ids'] = array_map( 'absint', (array) ( $input['jsjobs_dual_role_ids'] ?? [] ) );
 
         if ( ! empty( $input['regenerate_api_key'] ) ) {
             $new_key = $this->generate_api_key();
@@ -425,6 +435,28 @@ class Keoni_Bridge_Admin {
         }
         echo '<p class="description">' . esc_html__( 'Sélectionnez les rôles autorisés à consulter/éditer les CV. Les administrateurs y ont toujours accès.', 'keoni-bridge' ) . '</p>';
         echo '</fieldset>';
+    }
+
+    public function render_jsjobs_dual_role_field(): void {
+        $settings = Keoni_Bridge::get_settings();
+        $selected = array_map( 'intval', (array) ( $settings['jsjobs_dual_role_ids'] ?? [] ) );
+        $users    = get_users( [ 'orderby' => 'display_name', 'fields' => [ 'ID', 'display_name', 'user_email' ] ] );
+
+        printf(
+            '<select name="%1$s[jsjobs_dual_role_ids][]" multiple="multiple" size="8" style="min-width:320px;">',
+            esc_attr( $this->option_name )
+        );
+        foreach ( $users as $user ) {
+            printf(
+                '<option value="%1$d" %2$s>%3$s (%4$s)</option>',
+                (int) $user->ID,
+                in_array( (int) $user->ID, $selected, true ) ? 'selected="selected"' : '',
+                esc_html( $user->display_name ),
+                esc_html( $user->user_email )
+            );
+        }
+        echo '</select>';
+        echo '<p class="description">' . esc_html__( 'Comptes autorisés à ajouter/gérer des offres même avec un profil candidat (jobseeker) -- pour les RH qui gèrent la plateforme en interne sans avoir à jongler entre deux comptes. Liste nominative volontairement : un rôle WordPress est souvent partagé avec de vrais candidats externes.', 'keoni-bridge' ) . '</p>';
     }
 
     private function render_cv_list_view(): void {
