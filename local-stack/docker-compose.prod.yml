@@ -1,6 +1,7 @@
+name: keoni
 services:
   db:
-    image: postgres:15-alpine
+    image: pgvector/pgvector:pg16
     container_name: keoni_db_prod
     restart: unless-stopped
     env_file: .env.prod
@@ -15,6 +16,24 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    mem_limit: 256m
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - FOWNER
+      - SETUID
+      - SETGID
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - keoni_net
 
@@ -26,6 +45,9 @@ services:
     environment:
       MATCHING_API_KEY: ${MATCHING_API_KEY}
       MODEL_CACHE: /models
+      # Cache HuggingFace sur le volume ./volumes/models (et non dans la couche
+      # inscriptible du conteneur : re-téléchargé à chaque déploiement sinon).
+      HF_HOME: /models/huggingface
       DATA_DIR: /data/cv_raw
       MATCHING_PRELOAD_MODEL: ${MATCHING_PRELOAD_MODEL:-1}
       MATCHING_MIN_TITLE_HITS: ${MATCHING_MIN_TITLE_HITS:-3}
@@ -35,15 +57,27 @@ services:
       db:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./volumes/models:/models
       - ./volumes/data/cv_raw:/data/cv_raw
+    mem_limit: 2560m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - keoni_net
 
   n8n:
-    image: n8nio/n8n:1.82.1
+    image: n8nio/n8n:1.123.10
     container_name: keoni_n8n_prod
     restart: unless-stopped
     env_file: .env.prod
@@ -55,6 +89,9 @@ services:
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       N8N_RUNNERS_TASK_TIMEOUT: 900
       N8N_SECURE_COOKIE: "true"
+      N8N_PROXY_HOPS: 0
+      N8N_HOST: 127.0.0.1
+      N8N_LISTEN_ADDRESS: 0.0.0.0
       WEBHOOK_URL: ${N8N_WEBHOOK_URL}
       WP_API_BASE_URL: ${WP_API_BASE_URL}
       MATCHING_API_BASE_URL: ${MATCHING_API_BASE_URL}
@@ -63,12 +100,25 @@ services:
     depends_on:
       - db
     ports:
-      - "5678:5678"
+      - "127.0.0.1:5678:5678"
     volumes:
       - ./volumes/prod/n8n:/home/node/.n8n
+    mem_limit: 768m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
     networks:
       - keoni_net
 
 networks:
   keoni_net:
     driver: bridge
+    name: keoni_prod_net
