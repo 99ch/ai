@@ -546,6 +546,16 @@ class Keoni_Bridge_Shortcode {
     public function ajax_load_more(): void {
         check_ajax_referer( 'keoni_matching', 'nonce' );
 
+        // Profil candidat (jobseeker) : zero droit d'IA, sans exception --
+        // meme raisonnement que user_can_manage_job_matching() dans
+        // class-keoni-bridge-hooks.php. Expose des donnees de scoring CV
+        // (sensibles), pas juste une action a declencher -- bloque explicitement
+        // plutot que de ne compter que sur le shortcode jamais rendu pour un
+        // candidat (viewjob.php/myjobs.php).
+        if ( class_exists( 'JSJOBSincluder' ) && JSJOBSincluder::getObjectClass( 'user' )->isjobseeker() ) {
+            wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
+        }
+
         $job_id    = absint( wp_unslash( $_POST['job_id'] ?? 0 ) );
         $limit     = max( 1, absint( wp_unslash( $_POST['limit'] ?? 20 ) ) );
         $offset    = max( 0, absint( wp_unslash( $_POST['offset'] ?? 0 ) ) );

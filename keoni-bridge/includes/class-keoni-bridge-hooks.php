@@ -471,6 +471,17 @@ class Keoni_Bridge_Hooks {
             return false;
         }
 
+        // Profil candidat (jobseeker) : zero droit d'IA, sans exception --
+        // meme s'il possede l'offre (peut desormais en creer/gerer, voir
+        // js-jobs modules/job/controller.php) ou cumule une autre capacite
+        // WordPress. Verifie avant tout le reste, pas seulement cote UI
+        // (viewjob.php/myjobs.php) : sans ca, l'action AJAX restait
+        // joignable directement (nonce + nom d'action connus) meme bouton
+        // masque.
+        if ( class_exists( 'JSJOBSincluder' ) && JSJOBSincluder::getObjectClass( 'user' )->isjobseeker() ) {
+            return false;
+        }
+
         if ( current_user_can( 'manage_keoni_bridge_cv_db' ) || current_user_can( 'manage_options' ) ) {
             return true;
         }
