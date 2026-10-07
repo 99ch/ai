@@ -100,41 +100,83 @@ class Keoni_Bridge_Hooks {
             wp_send_json_error( [ 'message' => __( 'Accès refusé.', 'keoni-bridge' ) ], 403 );
         }
 
-        // Branche rapide : appel synchrone direct à matching-api
-        // (/score-fast, dérivé de l'URL /score réglée dans les paramètres),
-        // plus de passage par n8n. La réponse HTTP contient déjà les
-        // résultats définitifs -- pas de polling nécessaire côté frontend,
-        // contrairement à l'ancien flux webhook. Purge d'abord, même
-        // raison que l'ancien flux : un candidat absent du nouveau run ne
-        // doit pas rester affiché indéfiniment avec un score obsolète.
-        // Table cv_matching_results_fast uniquement -- la branche autonome
-        // (cv_matching_results, "Voir résultat2") n'est jamais touchée ici.
-        Keoni_Bridge_Repository::delete_matching_results_fast( $job_id );
+        // 2026-10-07 : déclenchement asynchrone (POST /score/trigger) --
+        // remplace l'appel synchrone à /score-fast. La relecture fine
+        // (cross-encoder) s'applique désormais à tout le vivier éligible
+        // sans exception (exigence explicite), ce qui peut dépasser le
+        // timeout HTTP de 120s ci-dessous si on restait synchrone -- le
+        // calcul tourne donc en tâche de fond côté matching-api, qui écrit
+        // lui-même ses résultats (table cv_matching_results, "Voir
+        // résultat2" -- plus cv_matching_results_fast, qui n'est plus
+        // alimentée par ce chemin). Pas de polling câblé côté JS pour
+        // l'instant (voir ajax_matching_status, déjà prêt côté backend) :
+        // l'admin recharge la page ou utilise "Voir résultat2" une fois le
+        // calcul terminé.
+        $started = $this->call_score_trigger( $job_id );
 
-        $response = $this->call_score_fast( $job_id );
-
-        if ( null === $response ) {
+        if ( ! $started ) {
             wp_send_json_error( [ 'message' => __( 'Impossible de contacter le service de matching.', 'keoni-bridge' ) ], 500 );
         }
 
-        $results     = is_array( $response['results'] ?? null ) ? $response['results'] : [];
-        $duration_ms = (int) ( $response['duration_ms'] ?? 0 );
-        Keoni_Bridge_Repository::store_matching_results_fast( $job_id, $results );
-        Keoni_Bridge_Repository::set_workflow_kpi_fast( $job_id, [ 'duration_ms' => $duration_ms ] );
-
         wp_send_json_success( [
-            'message'     => __( 'Matching IA terminé.', 'keoni-bridge' ),
-            'complete'    => true,
-            'count'       => count( $results ),
-            'duration_ms' => $duration_ms,
+            'message'  => __( 'Relecture complète lancée -- les résultats seront prêts dans quelques instants à quelques minutes selon le nombre de CV. Rechargez la page ou consultez « Voir résultat » pour les voir.', 'keoni-bridge' ),
+            'complete' => false,
         ] );
     }
 
     /**
-     * Appelle matching-api directement (POST /score-fast), sans passer par
-     * n8n -- voir ajax_run_matching(). L'URL /score-fast est dérivée du
-     * réglage "URL matching API" existant (matching_url, jusqu'ici réservé
-     * sans jamais être câblé) en remplaçant son suffixe /score.
+     * Appelle matching-api directement (POST /score/trigger), sans passer
+     * par n8n -- voir ajax_run_matching(). Déclenche un passage complet en
+     * tâche de fond côté matching-api et répond tout de suite (started),
+     * contrairement à call_score_fast() ci-dessous qui attendait le
+     * résultat complet. Timeout court : on confirme juste le démarrage, pas
+     * la fin du calcul.
+     */
+    private function call_score_trigger( int $job_id ): bool {
+        $settings = Keoni_Bridge::get_settings();
+        $base     = $settings['matching_url'] ?? '';
+        $api_key  = $settings['matching_api_key'] ?? '';
+
+        if ( empty( $base ) || empty( $api_key ) ) {
+            error_log( '[Keoni Bridge] /score/trigger: matching_url ou matching_api_key manquant dans les réglages.' );
+            return false;
+        }
+
+        $url = preg_match( '#/score$#', $base )
+            ? preg_replace( '#/score$#', '/score/trigger', $base )
+            : rtrim( $base, '/' ) . '/score/trigger';
+
+        $response = wp_remote_post( $url, [
+            'timeout' => 15,
+            'headers' => [
+                'Content-Type' => 'application/json',
+                'X-API-Key'    => sanitize_text_field( $api_key ),
+            ],
+            'body'    => wp_json_encode( [ 'job_id' => $job_id ] ),
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            error_log( sprintf( '[Keoni Bridge] /score/trigger error for job %d: %s', $job_id, $response->get_error_message() ) );
+            return false;
+        }
+
+        $status_code = (int) wp_remote_retrieve_response_code( $response );
+
+        if ( $status_code < 200 || $status_code >= 300 ) {
+            error_log( sprintf( '[Keoni Bridge] /score/trigger HTTP %d for job %d.', $status_code, $job_id ) );
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Branche rapide, DÉPRÉCIÉE (2026-10-07) au profit de call_score_trigger()
+     * ci-dessus -- gardée telle quelle (plus appelée par ajax_run_matching)
+     * le temps de confirmer que rien d'autre n'en dépend. Appelle
+     * matching-api directement (POST /score-fast), sans passer par n8n.
+     * L'URL /score-fast est dérivée du réglage "URL matching API" existant
+     * (matching_url) en remplaçant son suffixe /score.
      */
     private string $last_score_fast_error = '';
 
